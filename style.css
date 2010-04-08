@@ -1,0 +1,35 @@
+.trait {
+	z-index:10;
+	position:absolute;
+	font-size:7;
+	padding-left:4px;
+}
+
+.personne {
+	z-index:20;
+	position:absolute;
+	overflow:hidden;
+	padding-left:2px;
+	filter : alpha(opacity=80);
+    -moz-opacity : 0.8;
+    opacity : 0.8;
+    border:1px solid black;
+}
+
+.recursion {
+	text-align:right;
+	width:100%;
+}
+
+.bt { border-top:1px solid black; }
+.bl { border-left:1px solid black; }
+.bb { border-bottom:1px solid black; }
+.br { border-right:1px solid black; }
+
+.F {
+	background-color:rgb(255,166,210);
+}
+
+.M {
+	background-color:rgb(124,157,243);
+}
