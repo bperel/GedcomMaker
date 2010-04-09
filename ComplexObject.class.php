@@ -1,47 +1,80 @@
 <?php
 class ComplexObject {
-	var $prefixes_objets=array();
+	static $prefixes_objets=array();
+	static $identifiants=array();
 	
 	function ComplexObject(array $args=array()) {
-		foreach($this->prefixes_objets as $variable=>$type) {
-			$this->$variable=new $type();
-		}
+		if (isset(static::$prefixes_objets))
+			foreach(static::$prefixes_objets as $variable=>$type)
+				$this->$variable=new $type();
+				
 		foreach($args as $index=>$value) {
-			$this->setFromBD($index,$value);
+			if ($index!='prefixes_objets')
+				$this->setFromBD($index,$value);
 		}
 	}
 	
-	function get($filtres=array()) {
-		$debug=debug_backtrace();
-		$nom_classe=get_class($debug[0]['object']);
-		$nom_table=strtolower($nom_classe).'s';
+	function get($filtres=array(),$str_all=false) {
+		$all=$str_all=='all';
+		$nom_classe=get_class($this);
+		$nom_table=self::getNomTable($nom_classe);
 		$requete='SELECT '.implode(', ',ComplexObject::getBDFields()).' '
 				.'FROM '.$nom_table.' '
 				.'WHERE id_session='.Personne::$id_session;
 		echo $requete."\n";
-		foreach($filtres as $champ=>$valeur)
-			$requete.=' AND '.$champ.' LIKE \''.$valeur.'\'';
+		foreach($filtres as $champ=>$valeur) {
+			if (is_int($champ))
+				$requete.=' AND '.$valeur;
+			else
+				$requete.=' AND '.$champ.' LIKE \''.$valeur.'\'';
+		}
 		$resultat_requete=Requete::query($requete) or die(mysql_error());
-		if ($infos=mysql_fetch_array($resultat_requete))
-			return new $nom_classe($infos);
-		return null;
+		$objets=array();
+		while ($infos=mysql_fetch_array($resultat_requete)) {
+			$infos2=array();
+			foreach($infos as $champ=>$valeur)
+				if (!is_integer($champ))
+					$infos2[$champ]=$valeur;
+			$objets[]=new $nom_classe($infos2);
+		}
+		return $objets==array() ? null : ($all ? $objets : $objets[0]);
 	}
 	
 
 	function add() {
-		$debug=debug_backtrace();
-		$nom_classe=get_class($debug[0]['object']);
-		$nom_table=strtolower($nom_classe).'s';
+		$nom_classe=get_class($this);
+		$nom_table=self::getNomTable($nom_classe);
 		$requete='INSERT INTO '.$nom_table.' ('.implode(', ',ComplexObject::getBDFields()).', id_session) '
 				.'VALUES ('.implode(', ',ComplexObject::getFormattedValues()).', '.Personne::$id_session.')';
 		Requete::query($requete) or die(mysql_error());
 	}
 	
+	function update() {
+		$nom_classe=get_class($this);
+		$nom_table=self::getNomTable($nom_classe);
+		$champs=ComplexObject::getBDFields();
+		$valeurs=ComplexObject::getFormattedValues();
+		
+		$requete='UPDATE '.$nom_table;
+		foreach($champs as $id_champ=>$champ) {
+			if ($id_champ!=0)
+				$requete.=',';
+			$requete.=' '.$champ.'='.$valeurs[$id_champ];
+		}
+		$requete.=' WHERE id_session='.Personne::$id_session;
+		foreach(static::$identifiants as $identifiant) {
+			$requete.=' AND '.$identifiant.'='.$valeurs[array_search($identifiant,$champs)];
+		}
+		
+		Requete::query($requete) or die(mysql_error());
+	}
+	
 	function getBDFields(){
 		$fields=array();
-		foreach($this as $attr=>$val)
+		foreach($this as $attr=>$val) {
 			if ($attr!='prefixes_objets')
-				$fields=array_merge($fields,self::attributeToBDFields($attr));
+				$fields=array_merge($fields,static::attributeToBDFields($attr));
+		}
 		return $fields;
 	}
 	
@@ -49,14 +82,14 @@ class ComplexObject {
 		$fields=array();
 		foreach($this as $attr=>$val)
 			if ($attr!='prefixes_objets')
-				$fields=array_merge($fields,self::attributeToBDValues($attr));
+				$fields=array_merge($fields,static::attributeToBDValues($attr));
 		return $fields;
 	}
 	
 	function attributeToBDFields($index) {
 		$pos_underscore=strpos($index,'_');
 		$bd_fields=array();
-		if (array_key_exists($index,$this->prefixes_objets) || ($pos_underscore!==null && array_key_exists(substr($index,0,$pos_underscore),$this->prefixes_objets))) {
+		if (array_key_exists($index,static::$prefixes_objets) || ($pos_underscore!==null && array_key_exists(substr($index,0,$pos_underscore),static::$prefixes_objets))) {
 			foreach($this->$index as $attr=>$val)
 				$bd_fields[]=$index.'_'.$attr;
 		}
@@ -69,14 +102,36 @@ class ComplexObject {
 	function attributeToBDValues($index) {
 		$pos_underscore=strpos($index,'_');
 		$bd_values=array();
-		if (array_key_exists($index,$this->prefixes_objets) || ($pos_underscore!==null && array_key_exists(substr($index,0,$pos_underscore),$this->prefixes_objets))) {
+		if (array_key_exists($index,static::$prefixes_objets) || ($pos_underscore!==null && array_key_exists(substr($index,0,$pos_underscore),static::$prefixes_objets))) {
 			foreach($this->$index as $attr=>$val)
 				$bd_values[$index.'_'.$attr]=toNullableString($val);
 		}
 		else {
-			$bd_values[$index]=toNullableString($this->$index);
+			if ((is_null($this->$index) || $this->$index==='') && in_array($index,static::$identifiants))
+				$bd_values[$index]=$this->getNext($index);
+			else
+				$bd_values[$index]=toNullableString($this->$index);
 		}
 		return $bd_values;
+	}
+	
+	function getNext ($champ) {
+		$requete='SELECT Max('.$champ.') AS max FROM '.self::getNomTable(get_class($this)).' WHERE id_session='.Personne::$id_session;
+		echo $requete;
+		$resultat=Requete::query($requete);
+		if ($infos=mysql_fetch_array($resultat)) {
+			echo 'Max '.self::getNomTable(get_class($this)).' : '.$infos['max'];
+			if (is_null($infos['max']))
+				return 1;
+			elseif (is_int(intval($infos['max'])))
+				return intval($infos['max'])+1;
+			else {
+				echo 'Erreur : le champ '.$champ.' n\'a pas été renseigné et n\'est pas un entier dans la table '.self::getNomTable(get_class($this))."\n";
+				echo 'Requête : '.$requete;
+				print_r(debug_backtrace());
+				exit(0);
+			}
+		}
 	}
 	
 	function setFromBD($index,$value) {
@@ -85,18 +140,29 @@ class ComplexObject {
 			$this->$index=$value;
 		else {
 			$prefixe=substr($index,0,$pos_underscore);
-			if (array_key_exists($prefixe,$this->prefixes_objets)) {
+			if (isset(static::$prefixes_objets) && array_key_exists($prefixe,static::$prefixes_objets)) {
 				$champ=substr($index,strrpos($index,'_')+1,strlen($index)-strrpos($index,'_')-1);
 				$this->$prefixe->$champ=$value;
 			}
-			else
+			else {
 				$this->$index=$value;
+			}
 		}	
+	}
+	
+	function getNomTable($nom_classe) {
+		$nom_classe[0]=strtolower($nom_classe[0]);
+		return strtolower(str_replace('_','s_',preg_replace('#([A-Z])#', '_$1', $nom_classe)).'s');
 	}
 }
 
 function toNullableString($string) {
 	if (is_null($string))
 		return 'NULL';
-	else return '\''.$string.'\'';
+	else return '\''.str_replace("'","",$string).'\'';
+}
+
+function ComplexObjectToGet($type, $filtres=array(),$str_all=false) {
+	$complexObject=new $type();
+	return $complexObject->get($filtres,$str_all);
 }

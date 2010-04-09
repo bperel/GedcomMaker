@@ -65,6 +65,10 @@ function loadPersonne (id) {
 				    }
 			    }
 				afficher_boite(resultat.boites.creees[0]);
+				if (resultat.traits) {
+					for (var i=0;i<resultat.traits.crees.length;i++)
+						afficher_trait(resultat.traits.crees[i]);
+				}
 			    if (nb_barres_ajoutees==0)
 			    	definir_termine(id_g);
 			}
@@ -83,12 +87,29 @@ function loadPersonne (id) {
 	});
 }
 
+function afficher_trait(trait) {
+	var eltrait=new Element('div',{'id':boite['id']+boite['id2']+boite['id3'], 'name':trait['name']})
+						.addClassName('trait')
+						.setStyle({'left':boite['pos_debut']['x'],'top':boite['pos_debut']['y']+'px'});
+	$('body').insert(eltrait);
+	for (var borderpos in trait['border']) {
+		var attr='border-'+borderpos;
+		eltrait.setStyle({attr : trait['border'][borderpos]});
+	}
+	if (boite['width'])
+		eltrait.setStyle({'width':boite['width']});
+	if (boite['height'])
+		eltrait.setStyle({'height':boite['height']});
+	if (boite['label'])
+		eltrait.update(boite['label']);
+}
+
 function afficher_boite(boite) {
 	var elboite=new Element('div',{'id':boite['id']}).addClassName('personne '+boite['sexe'])
 										    	     .setStyle({'left':boite['pos']['x'],'top':boite['pos']['y']+'px',
 										    		   		    'width':boite['dimension']['width']+'px','height':boite['dimension']['height']+'px'})
 										    	     .update(boite['contenu'])
-										    	     .insert(new Element('div').addClassName('recursion'));
+										    	     .insert(new Element('div').addClassName('recursion').update(boite['recursion']));
 	$('body').insert(elboite);
 }
 

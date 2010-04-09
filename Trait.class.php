@@ -2,7 +2,7 @@
 include_once('ComplexObject.class.php');
 
 class Trait extends ComplexObject{
-	var $prefixes_objets=array('pos'=>'Coord','border'=>'Border');
+	static $prefixes_objets=array('pos_debut'=>'Coord', 'pos_liaison'=>'PositionLiaison', 'border'=>'Border');
 	var $id;
 	var $id2;
 	var $id3;
@@ -14,6 +14,7 @@ class Trait extends ComplexObject{
 	var $label;
 	var $name;
 	var $type;
+	static $identifiants=array('id','id2','id3','type');
 
 	static $ajoutes;
 	
@@ -46,21 +47,6 @@ class Trait extends ComplexObject{
 		$requete='SELECT '.implode(', ',$this->getBDFields()).' '
 				.'FROM traits '
 				.'WHERE id_session='.Personne::$id_session.' AND (id LIKE \''.$id1.'\' OR id2 LIKE \''.$id2.'\' OR id3 IS NULL)';
-		$resultat_requete=Requete::query($requete);
-		$traits=array();
-		while ($infos=mysql_fetch_array($resultat_requete)) {
-			$traits[]=new Trait($infos);
-		} 
-		return $traits;
-	}
-	
-	static function getAll($filtre=array()) {
-		$requete='SELECT '.implode(', ',$this->getBDFields()).' '
-				.'FROM traits '
-				.'WHERE id_session='.Personne::$id_session;
-		foreach($filtre as $filtre) {
-			$requete.=' AND '.$filtre;
-		}
 		$resultat_requete=Requete::query($requete);
 		$traits=array();
 		while ($infos=mysql_fetch_array($resultat_requete)) {

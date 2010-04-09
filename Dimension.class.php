@@ -1,4 +1,5 @@
 <?php
+include_once('ComplexObject.class.php');
 class Dimension {
 	var $width;
 	var $height;

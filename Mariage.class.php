@@ -1,16 +1,15 @@
 <?php
-class Mariage {
+include_once('ComplexObject.class.php');
+class Mariage extends ComplexObject{
 	var $id;
 	var $conjoint1;
 	var $conjoint2;
 	var $date_mariage;
 	var $lieu_mariage;
-	var $enfants;
+	static $identifiants=array('id');
 	
-	function Mariage($conjoint1=null,$conjoint2=null,$date_mariage=null,$lieu_mariage=null,$enfants=array()) {
-		$this->conjoint1=$conjoint1;
-		$this->conjoint2=$conjoint2;
-		$this->date_mariage=$date_mariage;$this->lieu_mariage=$lieu_mariage;$this->enfants=$enfants;
+	function getEnfants() {
+		return EnfantMariage::get(array('id_mariage'=>$this->id),'all');
 	}
 	
 	function detecter_non_references() {
@@ -30,5 +29,15 @@ class Mariage {
 			}
 		}
 		return $personnes_non_referencees;
+	}
+	
+	static function getMariageConcerne ($liste_mariages, $id_enfant) {
+		foreach($liste_mariages as $num_mariage=>$mariage) {
+			$enfants_mariage=EnfantMariage::get(array('id_mariage'=>$num_mariage),'all');
+			foreach($enfants_mariage as $num_enfant=>$enfant)
+				if ($id_enfant==$num_enfant)
+					return $num_mariage;
+		}
+		return null;
 	}
 }?>
