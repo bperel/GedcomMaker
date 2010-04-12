@@ -17,7 +17,7 @@ class ComplexObject {
 	function get($filtres=array(),$str_all=false) {
 		$all=$str_all=='all';
 		$nom_classe=get_class($this);
-		$nom_table=self::getNomTable($nom_classe);
+		$nom_table=getNomTable($nom_classe);
 		$requete='SELECT '.implode(', ',ComplexObject::getBDFields()).' '
 				.'FROM '.$nom_table.' '
 				.'WHERE id_session='.Personne::$id_session;
@@ -43,7 +43,7 @@ class ComplexObject {
 
 	function add() {
 		$nom_classe=get_class($this);
-		$nom_table=self::getNomTable($nom_classe);
+		$nom_table=getNomTable($nom_classe);
 		$requete='INSERT INTO '.$nom_table.' ('.implode(', ',ComplexObject::getBDFields()).', id_session) '
 				.'VALUES ('.implode(', ',ComplexObject::getFormattedValues()).', '.Personne::$id_session.')';
 		Requete::query($requete) or die(mysql_error());
@@ -51,22 +51,32 @@ class ComplexObject {
 	
 	function update() {
 		$nom_classe=get_class($this);
-		$nom_table=self::getNomTable($nom_classe);
+		$nom_table=getNomTable($nom_classe);
 		$champs=ComplexObject::getBDFields();
 		$valeurs=ComplexObject::getFormattedValues();
 		
-		$requete='UPDATE '.$nom_table;
+		$requete='UPDATE '.$nom_table.' SET';
 		foreach($champs as $id_champ=>$champ) {
 			if ($id_champ!=0)
 				$requete.=',';
-			$requete.=' '.$champ.'='.$valeurs[$id_champ];
+			$requete.=' '.$champ.'='.$valeurs[$champ];
 		}
 		$requete.=' WHERE id_session='.Personne::$id_session;
 		foreach(static::$identifiants as $identifiant) {
-			$requete.=' AND '.$identifiant.'='.$valeurs[array_search($identifiant,$champs)];
+			$requete.=' AND '.$identifiant.'='.$valeurs[$identifiant];
 		}
 		
 		Requete::query($requete) or die(mysql_error());
+	}
+	
+	function addOrUpdate() {
+		$filter=array();
+		foreach(static::$identifiants as $identifiant)
+			$filter[$identifiant]=$this->$identifiant;
+		if (is_null(ComplexObjectToGet(get_class($this),$filter)))
+			$this->add();
+		else
+			$this->update();
 	}
 	
 	function getBDFields(){
@@ -116,17 +126,17 @@ class ComplexObject {
 	}
 	
 	function getNext ($champ) {
-		$requete='SELECT Max('.$champ.') AS max FROM '.self::getNomTable(get_class($this)).' WHERE id_session='.Personne::$id_session;
+		$requete='SELECT Max('.$champ.') AS max FROM '.getNomTable(get_class($this)).' WHERE id_session='.Personne::$id_session;
 		echo $requete;
 		$resultat=Requete::query($requete);
 		if ($infos=mysql_fetch_array($resultat)) {
-			echo 'Max '.self::getNomTable(get_class($this)).' : '.$infos['max'];
+			echo 'Max '.getNomTable(get_class($this)).' : '.$infos['max'];
 			if (is_null($infos['max']))
 				return 1;
 			elseif (is_int(intval($infos['max'])))
 				return intval($infos['max'])+1;
 			else {
-				echo 'Erreur : le champ '.$champ.' n\'a pas été renseigné et n\'est pas un entier dans la table '.self::getNomTable(get_class($this))."\n";
+				echo 'Erreur : le champ '.$champ.' n\'a pas été renseigné et n\'est pas un entier dans la table '.getNomTable(get_class($this))."\n";
 				echo 'Requête : '.$requete;
 				print_r(debug_backtrace());
 				exit(0);
@@ -149,11 +159,6 @@ class ComplexObject {
 			}
 		}	
 	}
-	
-	function getNomTable($nom_classe) {
-		$nom_classe[0]=strtolower($nom_classe[0]);
-		return strtolower(str_replace('_','s_',preg_replace('#([A-Z])#', '_$1', $nom_classe)).'s');
-	}
 }
 
 function toNullableString($string) {
@@ -161,7 +166,11 @@ function toNullableString($string) {
 		return 'NULL';
 	else return '\''.str_replace("'","",$string).'\'';
 }
-
+	
+function getNomTable($nom_classe) {
+	$nom_classe[0]=strtolower($nom_classe[0]);
+	return strtolower(str_replace('_','s_',preg_replace('#([A-Z])#', '_$1', $nom_classe)).'s');
+}
 function ComplexObjectToGet($type, $filtres=array(),$str_all=false) {
 	$complexObject=new $type();
 	return $complexObject->get($filtres,$str_all);

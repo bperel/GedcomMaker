@@ -2,7 +2,7 @@
 include_once('ComplexObject.class.php');
 
 class Trait extends ComplexObject{
-	static $prefixes_objets=array('pos_debut'=>'Coord', 'pos_liaison'=>'PositionLiaison', 'border'=>'Border');
+	static $prefixes_objets=array('pos_debut'=>'Coord', 'pos_liaison'=>'Coord', 'border'=>'Border');
 	var $id;
 	var $id2;
 	var $id3;
@@ -14,7 +14,7 @@ class Trait extends ComplexObject{
 	var $label;
 	var $name;
 	var $type;
-	static $identifiants=array('id','id2','id3','type');
+	static $identifiants=array('id','id2','type');
 
 	static $ajoutes;
 	

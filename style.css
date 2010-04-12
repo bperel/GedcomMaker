@@ -33,3 +33,18 @@
 .M {
 	background-color:rgb(124,157,243);
 }
+
+.bottom {
+	border-bottom: 1px solid black;
+}
+
+.left {
+	border-left:1px solid black;
+}
+
+.right {
+	border-right: 1px solid black;
+}
+.top {
+	border-top:1px solid black;
+}
