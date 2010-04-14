@@ -2,6 +2,7 @@
 class ComplexObject {
 	static $prefixes_objets=array();
 	static $identifiants=array();
+	static $traitement_special=array();
 	
 	function ComplexObject(array $args=array()) {
 		if (isset(static::$prefixes_objets))
@@ -9,7 +10,7 @@ class ComplexObject {
 				$this->$variable=new $type();
 				
 		foreach($args as $index=>$value) {
-			if ($index!='prefixes_objets')
+			if ($index!='prefixes_objets' && !in_array($index,static::$traitement_special))
 				$this->setFromBD($index,$value);
 		}
 	}
@@ -21,7 +22,6 @@ class ComplexObject {
 		$requete='SELECT '.implode(', ',ComplexObject::getBDFields()).' '
 				.'FROM '.$nom_table.' '
 				.'WHERE id_session='.Personne::$id_session;
-		echo $requete."\n";
 		foreach($filtres as $champ=>$valeur) {
 			if (is_int($champ))
 				$requete.=' AND '.$valeur;
@@ -37,7 +37,7 @@ class ComplexObject {
 					$infos2[$champ]=$valeur;
 			$objets[]=new $nom_classe($infos2);
 		}
-		return $objets==array() ? null : ($all ? $objets : $objets[0]);
+		return count($objets)==0 ? null : ($all ? $objets : $objets[0]);
 	}
 	
 
@@ -82,7 +82,7 @@ class ComplexObject {
 	function getBDFields(){
 		$fields=array();
 		foreach($this as $attr=>$val) {
-			if ($attr!='prefixes_objets')
+			if ($attr!='prefixes_objets' && !in_array($attr,static::$traitement_special))
 				$fields=array_merge($fields,static::attributeToBDFields($attr));
 		}
 		return $fields;
@@ -91,7 +91,7 @@ class ComplexObject {
 	function getFormattedValues(){
 		$fields=array();
 		foreach($this as $attr=>$val)
-			if ($attr!='prefixes_objets')
+			if ($attr!='prefixes_objets' && !in_array($attr,static::$traitement_special))
 				$fields=array_merge($fields,static::attributeToBDValues($attr));
 		return $fields;
 	}
@@ -127,20 +127,16 @@ class ComplexObject {
 	
 	function getNext ($champ) {
 		$requete='SELECT Max('.$champ.') AS max FROM '.getNomTable(get_class($this)).' WHERE id_session='.Personne::$id_session;
-		echo $requete;
 		$resultat=Requete::query($requete);
 		if ($infos=mysql_fetch_array($resultat)) {
-			echo 'Max '.getNomTable(get_class($this)).' : '.$infos['max'];
+			//echo 'Max '.getNomTable(get_class($this)).' : '.$infos['max'];
 			if (is_null($infos['max']))
 				return 1;
 			elseif (is_int(intval($infos['max'])))
 				return intval($infos['max'])+1;
-			else {
-				echo 'Erreur : le champ '.$champ.' n\'a pas été renseigné et n\'est pas un entier dans la table '.getNomTable(get_class($this))."\n";
-				echo 'Requête : '.$requete;
-				print_r(debug_backtrace());
-				exit(0);
-			}
+			else
+				fatal_error('Erreur : le champ '.$champ.' n\'a pas été renseigné et n\'est pas un entier dans la table '.getNomTable(get_class($this))."\n"
+						   .'Requête : '.$requete);
 		}
 	}
 	
@@ -174,4 +170,31 @@ function getNomTable($nom_classe) {
 function ComplexObjectToGet($type, $filtres=array(),$str_all=false) {
 	$complexObject=new $type();
 	return $complexObject->get($filtres,$str_all);
+}
+
+function ComplexObjectFieldToGet($type,$champ,$filtres=array()) {
+	$o=ComplexObjectToGet($type,$filtres);
+	if (is_null($o))
+		fatal_error('Can\'t get object '.$type.' ('.implode(',',$filtres).')');
+
+	$valeur_champ=null;
+	$pos=(strpos($champ,'->'));
+	while ($pos!==false) {
+		$nom_sous_objet=substr($champ,0,$pos);
+		$champ=substr($champ,$pos+2,strlen($champ)-$pos-2);
+		if (is_null($o->$nom_sous_objet))
+			fatal_error('Unknown property '.$nom_sous_objet);
+		$o=$o->$nom_sous_objet;
+		$pos=(strpos($champ,'->'));
+	}
+	if (is_null($o->$champ))
+		fatal_error('Can\'t get field '.$champ);
+		
+	return $o->$champ;
+}
+
+function fatal_error($str) {
+	echo $str;
+	print_r(debug_print_backtrace());
+	exit(0);
 }

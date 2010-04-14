@@ -6,10 +6,37 @@ class Mariage extends ComplexObject{
 	var $conjoint2;
 	var $date_mariage;
 	var $lieu_mariage;
+	var $enfants=array();
 	static $identifiants=array('id');
+	static $traitement_special=array('enfants');
+	
+	function get($filtres, $str_all) {
+		$this->enfants=$this->getEnfants();
+		if (is_null($this->enfants))
+			$this->enfants=array();
+		parent::get($filtres,$str_all);
+	}
+	
+	function add() {
+		$this->addEnfants($this->enfants);
+		parent::add();
+	}
+	
+	function update() {
+		parent::update();
+	}
 	
 	function getEnfants() {
-		return EnfantMariage::get(array('id_mariage'=>$this->id),'all');
+		if (is_null($this->id))
+			$this->id=$this->getNext('id');
+		return EnfantMariage::get(array('id'=>$this->id),'all');
+	}
+	
+	function addEnfants(array $enfants) {
+		foreach($enfants as $id_enfant) {
+			$enfantmariage=new EnfantMariage(array('id_enfant'=>$id_enfant,'id_mariage'=>$this->id));
+			$enfantmariage->add();
+		}
 	}
 	
 	function detecter_non_references() {
