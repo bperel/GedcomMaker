@@ -6,7 +6,7 @@ include_once('Mariage.class.php');
 include_once('Level.class.php');
 
 Personne::$id_session=$id_session;
-Personne::initMake_tree();
+//Personne::initMake_tree();
 
 $args=isset($_GET['args']) ? $_GET['args'] : (isset ($_POST['args']) ? $_POST['args'] : null);
 /*if (isset($args)) {
@@ -16,16 +16,13 @@ $args=isset($_GET['args']) ? $_GET['args'] : (isset ($_POST['args']) ? $_POST['a
 	
 }
 else {*/
-	$serveur='gw0';
-	$pseudo='astrofifi';
-	$id='p=louis+raymond+henry;n=chevallereau;oc=0';
+	$serveur='gw2';
+	$pseudo='jboidier';
+	$id='p=jean;n=veurier;oc=2';
 //}
 Personne::$nom_domaine='http://'.$serveur.'.geneanet.org/';
 $url='http://'.$serveur.'.geneanet.org/index.php3?b='.$pseudo.'&lang=fr;'.$id;
 
-$niveau=new Level();
-$niveau->niveau_courant=0;
-$niveau->add();
 global $personne_source;
 $personne_source=new Personne($url);
 ?>
@@ -42,10 +39,10 @@ $personne_source=new Personne($url);
 	<script type="text/javascript" src="js/bramus/jsProgressBarHandler.js"></script>
 	<script type="text/javascript">
 		var pile_personnes=new Array();
-		var id_session_g=<?=$id_session?>;
-		var serveur_g='<?=$serveur?>';
-		var pseudo_g='<?=$pseudo?>';
-		var id_source='<?=$personne_source->id?>';
+		var id_session_g=<?php echo $id_session;?>;
+		var serveur_g='<?php echo $serveur;?>';
+		var pseudo_g='<?php echo $pseudo;?>';
+		var id_source='<?php echo $personne_source->id;?>';
 		var script='analyse'; 
 		pile_personnes.push(id_source);
 	</script>
@@ -55,8 +52,8 @@ $personne_source=new Personne($url);
 </head>
 <body id="body">
 <a href="javascript:void(0)" onclick="routine()">Commencer</a><br />
-<span style="color:#006600;font-weight:bold;"><?=$personne_source->id?></span> <br/>
-<span class="progressBar" name="niveau0" id="<?=$personne_source->id?>"></span>
+<span style="color:#006600;font-weight:bold;"><?php echo $personne_source->id;?></span> <br/>
+<span class="progressBar" name="niveau0" id="<?php echo $personne_source->id;?>"></span>
 </body>
 </html>
 <?php

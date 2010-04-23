@@ -14,7 +14,7 @@ class Mariage extends ComplexObject{
 		$this->enfants=$this->getEnfants();
 		if (is_null($this->enfants))
 			$this->enfants=array();
-		parent::get($filtres,$str_all);
+		return parent::get($filtres,$str_all);
 	}
 	
 	function add() {
@@ -29,7 +29,7 @@ class Mariage extends ComplexObject{
 	function getEnfants() {
 		if (is_null($this->id))
 			$this->id=$this->getNext('id');
-		return EnfantMariage::get(array('id'=>$this->id),'all');
+		return ComplexObjectToGet('EnfantMariage',array('id_mariage'=>$this->id),'all');
 	}
 	
 	function addEnfants(array $enfants) {
@@ -59,12 +59,13 @@ class Mariage extends ComplexObject{
 	}
 	
 	static function getMariageConcerne ($liste_mariages, $id_enfant) {
-		foreach($liste_mariages as $num_mariage=>$mariage) {
-			$enfants_mariage=EnfantMariage::get(array('id_mariage'=>$num_mariage),'all');
-			foreach($enfants_mariage as $num_enfant=>$enfant)
-				if ($id_enfant==$num_enfant)
-					return $num_mariage;
-		}
-		return null;
-	}
+            foreach($liste_mariages as $num_mariage=>$mariage) {
+                $enfants_mariage=ComplexObjectToGet('EnfantMariage', array('id_mariage'=>$mariage->id),'all');
+                foreach($enfants_mariage as $enfant_mariage) {
+                    if ($id_enfant==$enfant_mariage->id_enfant)
+                        return $num_mariage;
+                }
+            }
+            return null;
+        }
 }?>

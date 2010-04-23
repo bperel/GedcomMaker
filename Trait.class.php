@@ -2,22 +2,60 @@
 include_once('ComplexObject.class.php');
 
 class Trait extends ComplexObject{
-	static $prefixes_objets=array('pos_debut'=>'Coord', 'pos_liaison'=>'Coord', 'border'=>'Border');
+	static $prefixes_objets=array('pos_debut'=>'Coord', 'liaison'=>'Liaison', 'border'=>'Border');
+	static $identifiants=array('id','id2','id3','type');
+        static $traitement_special=array('liaison');
 	var $id;
 	var $id2;
 	var $id3;
 	var $pos_debut;
 	var $width;
 	var $height;
-	var $pos_liaison;
+	var $liaison;
 	var $border;
 	var $label;
 	var $name;
 	var $type;
-	static $identifiants=array('id','id2','type');
 
-	static $ajoutes;
-	
+        static $ajoutes;
+
+        function get($filtres, $str_all) {
+            $trait=parent::get($filtres,$str_all);
+            if (is_null($trait))
+                return null;
+            $filtres_liaison=array();
+            $liaison=new Liaison();
+            foreach($filtres as $nom_filtre=>$valeur_filtre)
+                foreach($liaison as $attribut=>$valeur_attribut)
+                    if ($nom_filtre==$attribut)
+                        $filtres_liaison[$attribut]=$valeur_filtre; // Ajouter tous les filtres du trait qui s'appliquent à la liaison
+                    
+            if ($str_all=='all') {
+                foreach($trait as $index=>$un_trait) {
+                    foreach(Liaison::$identifiants as $valeur_attribut)
+                        $filtres_liaison[$valeur_attribut]=$un_trait->$valeur_attribut; // Ajouter les caractéristiques du trait courant
+                    $trait[$index]->liaison=ComplexObjectToGet('Liaison', $filtres_liaison);
+                }
+            }
+            else
+                $trait->liaison=ComplexObjectToGet('Liaison', $filtres_liaison);
+            return $trait;
+	}
+
+	function add() {
+            $this->liaison->addOrUpdate();
+            parent::add();
+	}
+
+	function update() {
+            parent::update();
+	}
+
+        function addOrUpdate() {
+            $this->liaison->addOrUpdate();
+            parent::addOrUpdate();
+        }
+
 	function changetoBD() {
 		$requete='UPDATE traits SET ';
 		$debut=true;
@@ -46,7 +84,7 @@ class Trait extends ComplexObject{
 	static function getTraitsConcernesPar($id1,$id2) {
 		$requete='SELECT '.implode(', ',$this->getBDFields()).' '
 				.'FROM traits '
-				.'WHERE id_session='.Personne::$id_session.' AND (id LIKE \''.$id1.'\' OR id2 LIKE \''.$id2.'\' OR id3 IS NULL)';
+				.'WHERE id_session='.Personne::$id_session.' AND (id LIKE \''.$id.'\' OR id2 LIKE \''.$id2.'\' OR id3 IS NULL)';
 		$resultat_requete=Requete::query($requete);
 		$traits=array();
 		while ($infos=mysql_fetch_array($resultat_requete)) {

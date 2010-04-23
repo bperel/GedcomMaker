@@ -13,6 +13,24 @@ class Boite extends ComplexObject {
 	var $pos;
 	var $dimension;
 	
+	/*
+	function get($filtres, $str_all) {
+		$boites= parent::get($filtres,$str_all);
+		if (!is_null($boites)) {
+			if (is_array($boites))
+				foreach($boites as $boite)
+					$boite->fixNiveauCourant();
+			else
+				$boites->fixNiveauCourant();
+		}
+		return $boites;
+	}*/
+	
+	function fixNiveauCourant() {
+		Personne::$niveau_courant=intval($this->pos->y / (HAUTEUR_PERSONNE+HAUTEUR_GENERATION));
+		//echo 'Boite trouvee en y='.$this->pos->y.', niveau courant fixe a '.Personne::$niveau_courant."\n";
+	}
+	
 	static function changeToBD() {
 		$requete='UPDATE boites SET ';
 		$debut=true;

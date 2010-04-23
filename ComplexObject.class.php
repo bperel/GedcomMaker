@@ -7,10 +7,10 @@ class ComplexObject {
 	function ComplexObject(array $args=array()) {
 		if (isset(static::$prefixes_objets))
 			foreach(static::$prefixes_objets as $variable=>$type)
-				$this->$variable=new $type();
+                            $this->$variable=new $type();
 				
 		foreach($args as $index=>$value) {
-			if ($index!='prefixes_objets' && !in_array($index,static::$traitement_special))
+			if ($index!='prefixes_objets' /*&& !in_array($index,static::$traitement_special)*/)
 				$this->setFromBD($index,$value);
 		}
 	}
@@ -113,8 +113,9 @@ class ComplexObject {
 		$pos_underscore=strpos($index,'_');
 		$bd_values=array();
 		if (array_key_exists($index,static::$prefixes_objets) || ($pos_underscore!==null && array_key_exists(substr($index,0,$pos_underscore),static::$prefixes_objets))) {
-			foreach($this->$index as $attr=>$val)
+			foreach($this->$index as $attr=>$val) {
 				$bd_values[$index.'_'.$attr]=toNullableString($val);
+                        }
 		}
 		else {
 			if ((is_null($this->$index) || $this->$index==='') && in_array($index,static::$identifiants))
@@ -171,7 +172,9 @@ function ComplexObjectToGet($type, $filtres=array(),$str_all=false) {
 	$complexObject=new $type();
 	return $complexObject->get($filtres,$str_all);
 }
-
+/**
+ * Retourne une seule valeur, et non un tableau comme ComplexObjectToGet
+ */
 function ComplexObjectFieldToGet($type,$champ,$filtres=array()) {
 	$o=ComplexObjectToGet($type,$filtres);
 	if (is_null($o))
