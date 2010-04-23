@@ -1,3 +1,4 @@
+
 var id_g;
 var id_caller_g;
 var id_tmp_g;
@@ -13,21 +14,24 @@ var decalage_top=0,decalage_left=0;
 
 function routine() {
 	if (pile_personnes.length > 0 || ajax_is_loading) {
-		if (!ajax_is_loading)
-			loadPersonne(pile_personnes.pop());
+		if (!ajax_is_loading) {
+			var id_to_load=pile_personnes.pop();
+			loadPersonne(id_to_load, id_to_caller(id_to_load));
+		}
 	}
 	setTimeout(routine, 500);
 }
 
-function loadPersonne (id) {
+function loadPersonne (id, id_caller) {
 	ajax_is_loading=true;
 	id_g=id;
 	new Ajax.Request('Personne.class.php', {
-		parameters:script+'=true&id_session='+id_session_g+'&serveur='+serveur_g+'&pseudo='+pseudo_g+'&autres_args='+id.replace('%',';pcnt;'), 
+		parameters:script+'=true&id_session='+id_session_g+'&serveur='+serveur_g+'&pseudo='+pseudo_g+'&autres_args='+id.replace('%',';pcnt;')+'&caller='+id_caller.replace('%',';pcnt;'), 
 		asynchronous: true,
 		onSuccess: function(transport) {
 			var resultat=transport.headerJSON;
-		    
+                        if (!resultat)
+                            resultat=eval('('+transport.responseText.substring(transport.responseText.indexOf('{'),transport.responseText.length)+')');
 			if (script=='analyse') {
 				if (!resultat || resultat.length==0) {
 				    alert('L\'analyse de '+id_g+' a retourné : \n\n'+transport.responseText);
@@ -66,19 +70,19 @@ function loadPersonne (id) {
 				    }
 			    }
 				if (resultat.traits) {
-					for (var i=0;i<resultat.traits.crees.length;i++)
-						afficher_trait(resultat.traits.crees[i]);
-					for (var i=0;i<resultat.traits.modifies.length;i++) {
-						$(resultat.traits.modifies[i].id+'~'+resultat.traits.modifies[i].id2+'~'+resultat.traits.modifies[i].id3).remove();
-						afficher_trait(resultat.traits.modifies[i]);
+					for (var i=0;i<resultat.traits.creation.length;i++)
+						afficher_trait(resultat.traits.creation[i]);
+					for (var i=0;i<resultat.traits.modif.length;i++) {
+						$(trait_to_id(resultat.traits.modif[i])).remove();
+						afficher_trait(resultat.traits.modif[i]);
 					}
 				}
 				if (resultat.boites) {
-					for (var i=0;i<resultat.boites.creees.length;i++)
-						afficher_boite(resultat.boites.creees[i]);
-					for (var i=0;i<resultat.boites.modifiees.length;i++) {
-						$(resultat.boites.modifiees[i].id).remove();
-						afficher_boite(resultat.boites.modifiees[i]);
+					for (var i=0;i<resultat.boites.creation.length;i++)
+						afficher_boite(resultat.boites.creation[i]);
+					for (var i=0;i<resultat.boites.modif.length;i++) {
+						$('boite_'+resultat.boites.modif[i].id).remove();
+						afficher_boite(resultat.boites.modif[i]);
 					}
 				}
 				if (decalage_top != resultat.decalage.top || decalage_left != resultat.decalage.left) {
@@ -98,7 +102,7 @@ function loadPersonne (id) {
 			    	pile_personnes=new Array();
 				    return;
 				}
-				afficher_boite(resultat.boites.creees[0]);
+				afficher_boite(resultat.boites.creation[0]);
 			}
 		    ajax_is_loading=false;
 		    
@@ -106,8 +110,15 @@ function loadPersonne (id) {
 	});
 }
 
+function trait_to_id(trait) {
+	var id=trait.id+'~'+trait.id2;
+	if (trait.id3)
+		id+='~'+trait.id3;
+	return id;
+}
+
 function afficher_trait(trait) {
-	var eltrait=new Element('div',{'id':trait.id+'~'+trait.id2+'~'+trait.id3, 'name':trait.name})
+	var eltrait=new Element('div',{'id':trait_to_id(trait), 'name':trait.name})
 						.addClassName('trait')
 						.setStyle({'left':trait.pos_debut.x+'px','top':trait.pos_debut.y+'px'});
 	$('body').insert(eltrait);
@@ -126,7 +137,7 @@ function afficher_trait(trait) {
 }
 
 function afficher_boite(boite) {
-	var elboite=new Element('div',{'id':boite.id}).addClassName('personne '+boite.sexe)
+	var elboite=new Element('div',{'id':'boite_'+boite.id}).addClassName('personne '+boite.sexe)
 										    	     .setStyle({'left':boite.pos.x+'px','top':boite.pos.y+'px',
 										    		   		    'width':boite.dimension.width+'px','height':boite.dimension.height+'px'})
 										    	     .update(boite.contenu)
@@ -138,7 +149,7 @@ function definir_termine(id) {
 	$(id+'_percentImage').replace('OK');
 
 	var id_caller=id_to_caller(id);
-	if (!$(id_caller) || $(id_caller)==-1)
+	if (!$(id_caller) || $(id_caller)=='')
 		return;
 	var nb_enfants_caller=pile[id_caller]?pile[id_caller].length:1;
 	myJsProgressBarHandler.setPercentage(id_caller,'+'+(100/nb_enfants_caller));
@@ -154,12 +165,12 @@ function id_to_caller(id) {
 		for (var i=0;i<pile[caller].length;i++)
 			if (pile[caller][i]==id)
 				callers.push(caller);
-	return callers.length==0?-1:(callers.length==1?callers[0]:callers);
+	return callers.length==0?'':(callers.length==1?callers[0]:callers);
 }
 
 function ajouter_barre(niveau, id, id_caller,type, etat, id_conjoint) {
 	var texte=id;
-	if (id_to_caller(id)!=-1)
+	if (id_to_caller(id)!='')
 		etat='already_done';
 	
 	if (etat!='todo') {
