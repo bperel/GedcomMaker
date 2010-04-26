@@ -82,12 +82,7 @@ class Personne {
 	static $retour;
 	
 	// Construction graphique de l'arbre
-	static $liste_pos=array();
-	static $liste_mariages_dessines=array();
 	static $liste_liaisons=array();
-	static $liste_boites=array();
-	static $liste_personnes_decalees=array();
-	static $liste_marges_gauches=array();
 	
 	static $niveau_courant;
         static $id_depart;
@@ -815,15 +810,6 @@ class Personne {
 		}
 	}
 	
-	function modifierBoite($args) {
-		$requete='UPDATE boites SET id='.$this->id;
-		foreach($args as $id=>$value) {
-			$requete.=', '.$id.'=\''.$value.'\'';
-		}
-		$requete.=' WHERE id=\''.$this->id.'\' AND id_session='.Personne::$id_session;
-		Requete::query($requete) or die(mysql_error());
-	}
-	
 	function dessiner($pos_boite=null) {
 		debug('<br />');
 		debug('Création de '.$this->prenom.' '.$this->nom.'<br />');
@@ -949,10 +935,10 @@ class Personne {
 		$pos_trait_enfant=new Coord(array('x'=>$enfant->boite->pos->x + LARGEUR_PERSONNE/2,
 						  'y'=>$liaison->pos->y + HAUTEUR_PERSONNE/2+HAUTEUR_GENERATION/2 - $num_mariage*ESPACEMENT_MARIAGES));
 		
-		if (array_key_exists($enfant->id,Personne::$liste_boites))
-			$pos_reelle=ComplexObjectFieldToGet('Boite','pos',array('id'=>$enfant->id));
-		else
-			$pos_reelle=$enfant->boite->pos;
+		if (is_null(ComplexObjectToGet('Boite',array('id'=>$enfant->id))))
+                    $pos_reelle=$enfant->boite->pos;
+                else
+                    $pos_reelle=ComplexObjectFieldToGet('Boite','pos',array('id'=>$enfant->id));
 		// Ligne des enfants <-> Enfant
 		$trait=new Trait(array('id'=>$id_pere, 'id2'=>$id_mere,'id3'=>$enfant->id,
 							   'liaison'=>$liaison,
@@ -1271,22 +1257,6 @@ class Personne {
 		
 		
 		debug('Décalage de '.$correction_gauche.' vers la droite et '.$correction_haut.' vers le bas<br />');
-	}
-	
-	static function mariage_est_dessine($id_conjoint1,$id_conjoint2) {
-		foreach(Personne::$liste_mariages_dessines as $mariage_dessine)
-			if (($id_conjoint1==$mariage_dessine[0] && $id_conjoint2==$mariage_dessine[1]) 
-			|| ($id_conjoint1==$mariage_dessine[1] && $id_conjoint2==$mariage_dessine[0]))
-				return true;
-		return false;
-	}
-	
-	static function afficher_mariages() {
-		foreach(Personne::$liste_mariages_dessines as $mariage_dessine) {
-			$conjoint1=PersonneFromBD($mariage_dessine[0]);
-			$conjoint2=PersonneFromBD($mariage_dessine[1]);
-			echo $conjoint1->prenom.' '.$conjoint1->nom.' - '.$conjoint2->prenom.' '.$conjoint2->nom.'<br />';
-		}
 	}
 	
 	static function date_to_year($date) {
