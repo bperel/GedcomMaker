@@ -90,6 +90,7 @@ class Personne {
 	static $liste_marges_gauches=array();
 	
 	static $niveau_courant;
+        static $id_depart;
 	static $id_session;
 	static $liste_familles=array();
 	static $ids_parcourus=array();
@@ -285,6 +286,7 @@ class Personne {
                         if ($conjoint_existe_bd)
                             $conjoint->from_bd();
                         list($id_homme,$id_femme)=Personne::toHomme_Femme($this,$conjoint);
+                        $conjoint->sexe=($id_conjoint==$id_homme)?'H':'F';
                         if ($conjoint_existe_bd) {
                             $liaison=ComplexObjectFieldToGet('Trait','liaison',array('id'=>$id_homme,'id2'=>$id_femme,'type'=>'conjoints'));
                             $pos_conjoint=ComplexObjectFieldToGet('Boite','pos',array('id'=>$id_conjoint));
@@ -362,7 +364,7 @@ class Personne {
                     $url_parents=array('pere'=>Personne::$nom_domaine.$r_parents[2],'mere'=>Personne::$nom_domaine.$r_parents[5]);
                     $this->pere=Personne::url_to_id($url_parents['pere']);
                     $this->mere=Personne::url_to_id($url_parents['mere']);
-                    $pere=new Personne($url_parents['pere'],'I','?','?','',$this->pere,'?',null,null);
+                    $pere=new Personne($url_parents['pere'],'H','?','?','',$this->pere,'?',null,null);
                     $liste_parents=array('pere','mere');
                     foreach($liste_parents as $parent) {
                         if (!is_null($this->$parent)) {
@@ -433,7 +435,7 @@ class Personne {
                                     $mariage_parents=ComplexObjectToGet('Mariage',array('conjoint1'=>$this->pere,'conjoint2'=>$this->mere));
 
                                     $boite_pere=ComplexObjectToGet('Boite',array('id'=>$this->pere));
-                                    $pere=new Personne($this->pere,'I','?','?','',$pere->id,'...',null,null);
+                                    $pere=new Personne($this->pere,'H','?','?','',$pere->id,'...',null,null);
                                     $pere->boite=$boite_pere;
                                     Personne::ajouter_a_retour('trait', 'creation', $o_parent->lier_avec_conjoint($pere,0, ''));
                                 }
@@ -852,7 +854,7 @@ class Personne {
 	}
 	
 	function genererBoite($pos) {
-		$this->boite= new Boite(array('id'=>$this->id,'sexe'=>$this->sexe,
+		$this->boite= new Boite(array('id'=>$this->id,'sexe'=>$this->id===Personne::$id_depart ? $this->sexe : 'I',
                                               'recursion'=>count(debug_backtrace()),
                                               'contenu'=>$this->prenom.' '.strtoupper($this->nom).'<br /><span style="font-size:10px">'.$this->naissance.' - '.$this->mort.'</span>',
                                               'pos'=>$pos,'dimension'=>new Dimension(LARGEUR_PERSONNE,HAUTEUR_PERSONNE)));
@@ -1397,12 +1399,14 @@ function decomposer_naissance_mort ($str) {
 
 if (isset($_POST['analyse'])) {
 	Personne::$id_session=$_POST['id_session'];
+        $autres_args=str_replace(';pcnt;','%',$_POST['autres_args']);
+        Personne::$id_depart=$autres_args;
 	$niveau=new Level();
 	$niveau->niveau_courant=0;
 	$niveau->addOrUpdate();
 	$level_courant=ComplexObjectToGet('Level');
 	Personne::$niveau_courant=$level_courant->niveau_courant;
-	$url='http://'.$_POST['serveur'].'.geneanet.org/index.php3?b='.$_POST['pseudo'].'&lang=fr;'.str_replace(';pcnt;','%',$_POST['autres_args']);
+	$url='http://'.$_POST['serveur'].'.geneanet.org/index.php3?b='.$_POST['pseudo'].'&lang=fr;'.$autres_args;
 	$p = new Personne($url);
 	$level_courant->niveau_courant=Personne::$niveau_courant;
 	$resultat_analyse=$p->analyser();
