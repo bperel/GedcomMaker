@@ -298,12 +298,13 @@ class Personne {
                         }
 
                         Personne::$retour['boites'][$action_conjoints][]=$conjoint->dessiner($pos_conjoint);
-                        if (!$conjoint_existe_bd) {
-                            $homme=$this->sexe=='H' ? $this : $conjoint;
-                            $femme=$this->sexe=='H' ? $conjoint : $this;
+                        $homme=$this->sexe=='H' ? $this : $conjoint;
+                        $femme=$this->sexe=='H' ? $conjoint : $this;
+                        //if (!$conjoint_existe_bd) {
                             $liaison=Personne::calculerLiaison($homme,$femme,$i, $fin_enfants_precedents);
                             $liaison->add();
-                        }
+                        //}
+                        //$liaison=ComplexObjectToGet('Liaison', array('id'=>$homme->id,'id2'=>$femme->id));
                         Personne::$retour['mariages'][$i]['conjoint']=array('id'=>$id_conjoint,
                                                                             'action'=>$conjoint_existe_bd ? 'already_done' : 'todo');
                         $mariage=new Mariage(array('id'=>'','conjoint1'=>$id_homme,'conjoint2'=>$id_femme,'date_mariage'=>$date_mariage,'lieu_mariage'=>$lieu_mariage));
@@ -312,30 +313,32 @@ class Personne {
                         $mariage=ComplexObjectToGet('Mariage',array('conjoint1'=>$id_homme,'conjoint2'=>$id_femme)); // Pour récupérer l'ID
 
                         Personne::ajouter_a_retour('trait', $action_conjoints, $this->lier_avec_conjoint($conjoint,$i, $date_mariage));
-                        if (count($enfants) > 0)
+                        if (count($enfants) > 0) {
                             Personne::ajouter_a_retour('trait', $action_conjoints, $this->lier_avec_trait_enfants($conjoint,$i,$mariage,$fin_enfants_precedents));
-                        
-                        $largeur_enfants=count($enfants)==0?0:(count($enfants)==1?LARGEUR_PERSONNE:LARGEUR_PERSONNE*count($enfants)+ESPACEMENT_ENFANT*(count($enfants)-1));
-                        Personne::$niveau_courant++;
-                        foreach($enfants as $j=>$enfant) {
-                            $pos_enfant=new Coord(array('x'=>($fin_enfants_precedents>0?($fin_enfants_precedents):($liaison->pos->x-$largeur_enfants/2)) + $j*(LARGEUR_PERSONNE+ESPACEMENT_ENFANT),
-                                                        'y'=>$this->boite->pos->y+HAUTEUR_PERSONNE+HAUTEUR_GENERATION));
-                            $enfant_existe_en_bd=Personne::existe_en_bd($enfant->id);
-                            $action_enfant=$enfant_existe_en_bd?'modif':'creation';
-                            Personne::$retour['boites'][$action_enfant][]=$enfant->dessiner($pos_enfant);
-                            Personne::ajouter_a_retour('trait', $action_enfant, $this->lier_avec_enfant($conjoint,$i,$enfant,$conjoint->boite->pos->x));
-                            if ($action_enfant=='creation')
-                                $enfant->to_bd(); // Puis on ajoute l'enfant en tant que Personne...
-                            Personne::$retour['mariages'][$i]['enfants'][$j]=array('id'=>$enfant->id,'action'=>$action_enfant=='creation'?'todo':'already_done');
-                            if (is_null(ComplexObjectToGet('EnfantMariage',array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id)))) {
-                                $o_enfant=new EnfantMariage(array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id));
-                                $o_enfant->add(); // ... Et l'enfant en tant que relation avec ses parents
+                            $liaison=ComplexObjectToGet('Liaison', array('id'=>$id_homme,'id2'=>$id_femme));
+                            $largeur_enfants=LARGEUR_PERSONNE*count($enfants) + ESPACEMENT_ENFANT*(count($enfants)-1);
+                            Personne::$niveau_courant++;
+                            foreach($enfants as $j=>$enfant) {
+                                $pos_enfant=new Coord(array('x'=>($fin_enfants_precedents>0?($fin_enfants_precedents):($liaison->pos->x-$largeur_enfants/2)) + $j*(LARGEUR_PERSONNE+ESPACEMENT_ENFANT),
+                                                            'y'=>$this->boite->pos->y+HAUTEUR_PERSONNE+HAUTEUR_GENERATION));
+                                $enfant_existe_en_bd=Personne::existe_en_bd($enfant->id);
+                                $action_enfant=$enfant_existe_en_bd?'modif':'creation';
+                                Personne::$retour['boites'][$action_enfant][]=$enfant->dessiner($pos_enfant);
+                                Personne::ajouter_a_retour('trait', $action_enfant, $this->lier_avec_enfant($conjoint,$i,$enfant,$conjoint->boite->pos->x));
+                                if ($action_enfant=='creation')
+                                    $enfant->to_bd(); // Puis on ajoute l'enfant en tant que Personne...
+                                Personne::$retour['mariages'][$i]['enfants'][$j]=array('id'=>$enfant->id,'action'=>$action_enfant=='creation'?'todo':'already_done');
+                                if (is_null(ComplexObjectToGet('EnfantMariage',array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id)))) {
+                                    $o_enfant=new EnfantMariage(array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id));
+                                    $o_enfant->add(); // ... Et l'enfant en tant que relation avec ses parents
+                                }
+                                $mariage->enfants[]=$enfant->id;
                             }
-                            $mariage->enfants[]=$enfant->id;
+                            if (count($enfants) > 0)
+                                Personne::ajouter_a_retour('trait', $action_conjoints, $this->lier_avec_enfants($conjoint,$i,$mariage,$fin_enfants_precedents));
+                            Personne::$niveau_courant--;
+                            $mariage->update();
                         }
-                        Personne::ajouter_a_retour('trait', $action_conjoints, $this->lier_avec_enfants($conjoint,$i,$mariage,$fin_enfants_precedents));
-                        Personne::$niveau_courant--;
-                        $mariage->update();
                         $this->mariages[$i]=$mariage;
 
                         $famille_existante=false;
@@ -352,6 +355,7 @@ class Personne {
                             $dernier_enfant=$enfants[count($r_enfants[0])-1];
                             $fin_enfants_precedents= $dernier_enfant->boite->pos->x + LARGEUR_PERSONNE+ESPACEMENT_INCONNUS;
                         }
+                        $conjoint->to_bd();
                     }
                 }
 		Personne::$niveau_courant--;
@@ -875,7 +879,7 @@ class Personne {
 		$debut_liaison=$personne_gauche->boite->pos->x+LARGEUR_PERSONNE+LARGEUR_BORDURE*4;
                 $liaison=new Liaison(array('id'=>$id_homme,'id2'=>$id_femme,
                                            'pos'=>new Coord(array('x'=>$debut_liaison+ESPACEMENT_EPOUX/2,
-                                                                              'y'=>$this->boite->pos->y+($num_mariage*ESPACEMENT_MARIAGES)+HAUTEUR_PERSONNE/2))));
+                                                                  'y'=>$this->boite->pos->y+($num_mariage*ESPACEMENT_MARIAGES)+HAUTEUR_PERSONNE/2))));
 		$liaison->addOrUpdate();
                 $trait=new Trait(array('id'=>$id_homme, 'id2'=>$id_femme,
                                        'border'=>new Border(array('top'=>1,'left'=>0)),
