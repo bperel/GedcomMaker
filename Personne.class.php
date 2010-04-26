@@ -285,7 +285,6 @@ class Personne {
                         if ($conjoint_existe_bd)
                             $conjoint->from_bd();
                         list($id_homme,$id_femme)=Personne::toHomme_Femme($this,$conjoint);
-                        $conjoint->sexe=($id_conjoint==$id_homme)?'H':'F';
                         if ($conjoint_existe_bd) {
                             $liaison=ComplexObjectFieldToGet('Trait','liaison',array('id'=>$id_homme,'id2'=>$id_femme,'type'=>'conjoints'));
                             $pos_conjoint=ComplexObjectFieldToGet('Boite','pos',array('id'=>$id_conjoint));
@@ -301,8 +300,8 @@ class Personne {
                         $homme=$this->sexe=='H' ? $this : $conjoint;
                         $femme=$this->sexe=='H' ? $conjoint : $this;
                         //if (!$conjoint_existe_bd) {
-                            $liaison=Personne::calculerLiaison($homme,$femme,$i, $fin_enfants_precedents);
-                            $liaison->add();
+                        $liaison=Personne::calculerLiaison($homme,$femme,$i, $fin_enfants_precedents);
+                        $liaison->addOrUpdate();
                         //}
                         //$liaison=ComplexObjectToGet('Liaison', array('id'=>$homme->id,'id2'=>$femme->id));
                         Personne::$retour['mariages'][$i]['conjoint']=array('id'=>$id_conjoint,
@@ -351,7 +350,7 @@ class Personne {
                         if (!$famille_existante)
                             array_push(Personne::$liste_familles,$mariage);
 
-                        if (count($r_enfants[0])) {
+                        if (count($enfants)>0) {
                             $dernier_enfant=$enfants[count($r_enfants[0])-1];
                             $fin_enfants_precedents= $dernier_enfant->boite->pos->x + LARGEUR_PERSONNE+ESPACEMENT_INCONNUS;
                         }
@@ -363,7 +362,7 @@ class Personne {
                     $url_parents=array('pere'=>Personne::$nom_domaine.$r_parents[2],'mere'=>Personne::$nom_domaine.$r_parents[5]);
                     $this->pere=Personne::url_to_id($url_parents['pere']);
                     $this->mere=Personne::url_to_id($url_parents['mere']);
-                    $pere=new Personne($url_parents['pere'],'H','?','?','',$this->pere,'?',null,null);
+                    $pere=new Personne($url_parents['pere'],'I','?','?','',$this->pere,'?',null,null);
                     $liste_parents=array('pere','mere');
                     foreach($liste_parents as $parent) {
                         if (!is_null($this->$parent)) {
@@ -434,7 +433,7 @@ class Personne {
                                     $mariage_parents=ComplexObjectToGet('Mariage',array('conjoint1'=>$this->pere,'conjoint2'=>$this->mere));
 
                                     $boite_pere=ComplexObjectToGet('Boite',array('id'=>$this->pere));
-                                    $pere=new Personne($this->pere,'H','?','?','',$pere->id,'...',null,null);
+                                    $pere=new Personne($this->pere,'I','?','?','',$pere->id,'...',null,null);
                                     $pere->boite=$boite_pere;
                                     Personne::ajouter_a_retour('trait', 'creation', $o_parent->lier_avec_conjoint($pere,0, ''));
                                 }
