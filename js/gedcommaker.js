@@ -112,6 +112,8 @@ function loadPersonne (id, id_caller) {
 
 function trait_to_id(trait) {
 	var id=trait.id+'~'+trait.id2;
+        if (!$(id))
+            id=trait.id2+'~'+trait.id;
 	if (trait.id3)
 		id+='~'+trait.id3;
 	return id;
