@@ -52,34 +52,44 @@ define('LARGEUR_BORDURE',1);
 define('LIMITE_PROFONDEUR_SNIFFER',99);
 define('LIMITE_PROFONDEUR',LIMITE_PROFONDEUR_SNIFFER-2);
 
+define('COUPLE_PREMIER_MARIAGE',1);
+define('COUPLE_REMARIE',0);
+
 ini_set ('max_execution_time', 0); 
 
 function PersonneFromBD($id){
 	$p=new Personne($id);
-	if (is_null($p->from_bd())) {
+	if (is_null($p->ComplexMyselfToGet())) {
 		return null;
 	}
 	return $p;
 }
 
-Personne::$note_supplementaire='Source : Arbre généalogique Geneanet de Jean-Marcel Boidier';
+class Personne extends ComplexObject{
+	static $prefixes_objets=array('boite'=>'Boite');
+	static $identifiants=array('id');
+	static $traitement_special=array('boite','mariages','url');
 
-Personne::$regex_etat_civil='#<td class="highlight2">&nbsp; .tat civil</td>[^<]*</tr></table>[^<]*<ul>[^<]*'
-				 .'((?:<li>[^<]*</li>[^<]*)+)</ul>#isu';
-Personne::$regex_parents='#<td class="highlight2">&nbsp; Parents</td>[^<]*</tr></table>[^<]*<ul>[^<]*'
-					    .Personne::$ligne_personne_classique.'(?:(?:(?!</li>).)*)</li>[^<]*'
-					    .Personne::$ligne_personne_classique.'#isu';
-Personne::$regex_mariages='#<td class="highlight2">&nbsp; Mariage(?:\()?s?(?:\))? (?:et enfant(?:\()?s?(?:\))?)?(?:<span[^>]+>[^>]*>)*</td>[^<]*</tr></table>(?:[^<]*</h3>)?[^<]*(<ul>[^<]*'
-					     .'(?:<li style="vertical\-align: middle;list\-style\-type: (?:circle|disc|square)">Mari.e? ?(?:<em>[^<]+</em>)?[^a]*avec <a href="(?:[^"]+)">(?:[^<]+)</a>(?: <em><bdo dir="ltr">[^<]*</bdo></em>)?'
-					     .'(?:(?:(?!, dont).)*, dont[^<]*<ul>[^<]*(?:'.Personne::$ligne_personne_classique2.'(?:(?:(?!</li>).)*)</li>[^<]*)+</ul>)*[^<]*</li>[^<]*)+</ul>)#isuU';
-Personne::$regex_mariages_conjoints='#<li style="vertical\-align: middle;list\-style\-type: (circle|disc|square)">Mari.e? ?((?:<em>[^<]+</em>)?)[^a]*avec <a href="([^"]+)">([^<]+)</a>(?: <em><bdo dir="ltr">[^<]*</bdo></em>)?'
-			   					   .'((?:(?:(?!, dont).)*, dont[^<]*<ul>[^<]*(?:'.Personne::$ligne_personne_classique2.'(?:(?:(?!</li>).)*)</li>[^<]*)+</ul>)?)[^<]*</li>#isu';
-Personne::$regex_mariages_enfants='#'.Personne::$ligne_personne_classique.'#isu';
-Personne::$regex_patronyme='#<img src="http://images.geneanet\.org/v3/pictos_geneweb/[^/]+/(?:(?:saisie-(?:homme|femme))|sexeinconnu)\.gif" alt="(H|F|\?)" title="(?:H|F|\?)" />'
-						  .'</td>[^<]*<td class="highlight2">&nbsp;(?:(?:[^<]*<a href="[^"]*">([^<]+)</a>[^<]*<a href="[^"]*">([^<]+)</a>)|..([^<]*)</td>)#isu';
 
-class Personne {
-	static $retour;
+	var $id;
+	var $url;
+	var $naissance;
+	var $date_naissance=false;
+	var $lieu_naissance=false;
+	var $date_mort=false;
+	var $lieu_mort=false;
+	var $mort;
+	var $autres;
+	var $prenom='';
+	var $nom='';
+	var $sexe='I';
+	var $pere=null;
+	var $mere=null;
+        var $etat;
+	var $mariages=array();
+	var $boite;
+
+	static $retour=array();
 	
 	// Construction graphique de l'arbre
 	static $liste_liaisons=array();
@@ -108,23 +118,6 @@ class Personne {
 	static $mois=array('janvier'=>'JAN','février'=>'FEB','mars'=>'MAR','avril'=>'AVR','mai'=>'MAY','juin'=>'JUN',
 					   'juillet'=>'JUL', 'août'=>'AUG', 'septembre'=>'SEP', 'octobre'=>'OCT', 'novembre'=>'NOV', 'décembre'=>'DEC');
 	static $note_supplementaire;
-	var $id;
-	var $url;
-	var $naissance;
-	var $date_naissance=false;
-	var $lieu_naissance=false;
-	var $date_mort=false;
-	var $lieu_mort=false;
-	var $mort;
-	var $autres;
-	var $prenom='';
-	var $nom='';
-	var $sexe='I';
-	var $pere=null;
-	var $mere=null;
-	var $mariages=array();
-	
-	var $boite;
 	
 	static function setIdSession($id_session) {
 		self::$id_session=$id_session;
@@ -134,30 +127,64 @@ class Personne {
 		return self::$id_session;
 	}
 	
-	function Personne($url,$sexe='I', $naissance='',$mort='',$autres='',$prenom='',$nom='',$pere='',$mere='') {
+	function Personne($url=null,$sexe='I', $naissance='',$mort='',$autres='',$prenom='',$nom='',$pere='',$mere='') {
 		$this->url=$url;$this->naissance=$naissance;$this->mort=$mort;$this->autres=$autres;
 		$this->prenom=$prenom;$this->nom=$nom;
 		$this->pere=$pere;
 		$this->mere=$mere;
 		$this->id=$this->to_id();
 	}
-	
-	function analyser($from_bd=false) {
+
+        function get($filtres, $str_all=false) {
+		$this->boite=ComplexObjectToGet('Boite', array('id'=>$this->id));
+                $mariages1=ComplexObjectToGet('Mariage',array('conjoint1'=>$this->id));
+                $mariages2=ComplexObjectToGet('Mariage',array('conjoint2'=>$this->id));
+                if (is_null($mariages1)) {
+                    if (is_null($mariages2))
+			$this->mariages=array();
+                    else
+                        $this->mariages=$mariages2;
+                }
+                elseif (is_null($mariages2))
+                    $this->mariages=$mariages1;
+                else
+                    $this->mariages=array_merge($mariages1, $mariages2);
+		return parent::get($filtres,$str_all);
+	}
+
+        function add() {
+            if (is_null($this->boite)) {
+                echo 'Aucune boite définie pour '.$this->id."\n";
+            }
+            else
+                $this->boite->addOrUpdate();
+        }
+        
+	function ComplexMyselfToGet() {
+            $p=new Personne($this->id);
+            $o=$p->get(array('id'=>$this->id));
+            if (is_null($o))
+                return null;
+            foreach($o as $attribut=>$valeur)
+                $this->$attribut=$valeur;
+        }
+	function analyser($ComplexMyselfToGet=false) {
 		if (LIMITE_PROFONDEUR_SNIFFER!=0 && count(debug_backtrace())>LIMITE_PROFONDEUR_SNIFFER) {
 			echo '[TMR]<br />';
 			return;
 		}
-		$retour=array();
 		Personne::$retour['boites']=array('creation'=>array(),'modif'=>array());
 		Personne::$retour['traits']=array('creation'=>array(),'modif'=>array());
-		$this->from_bd();
 		
-		$ch = curl_init($this->url);
+                $this->ComplexMyselfToGet();
+
+
+                $ch = curl_init($this->url);
 		curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
 		$page = curl_exec($ch);
 		curl_close($ch);
-                /*
-                $handle = fopen($this->url, "rb");
+                
+                /*$handle = fopen($this->url, "rb");
                 $page = stream_get_contents($handle);
                 fclose($handle);*/
                 if (is_null($page) || $page===false) {
@@ -169,7 +196,7 @@ class Personne {
 			// Récupérer la relation avec la personne appelante
 			$id_personne_appelante=$_POST['caller'];
 			$personne_appelante=new Personne(str_replace(';pcnt;','%',$id_personne_appelante));
-			$personne_appelante->from_bd();
+			$personne_appelante->ComplexMyselfToGet();
 			$personne_appelante->boite->fixNiveauCourant();
 			Personne::$niveau_courant+=$this->getDifferenceNiveauAvec($id_personne_appelante);
 		}
@@ -279,7 +306,7 @@ class Personne {
                         $conjoint_existe_bd=Personne::existe_en_bd($id_conjoint);
                         $conjoint=new Personne($id_conjoint,'I','?','?','',$id_conjoint,'...',null,null);
                         if ($conjoint_existe_bd)
-                            $conjoint->from_bd();
+                            $conjoint->ComplexMyselfToGet();
                         list($id_homme,$id_femme)=Personne::toHomme_Femme($this,$conjoint);
                         $conjoint->sexe=($id_conjoint==$id_homme)?'H':'F';
                         if ($conjoint_existe_bd) {
@@ -291,7 +318,7 @@ class Personne {
                             $pos_conjoint=new Coord(array('x'=>$this->boite->pos->x,'y'=>$this->boite->pos->y));
                             $pos_conjoint->x+=($conjoint->sexe=='F' ? 1 : -1)*(LARGEUR_PERSONNE+ESPACEMENT_EPOUX+LARGEUR_BORDURE*4);
                             $action_conjoints='creation';
-                            Personne::$retour['boites'][$action_conjoints][]=$conjoint->dessiner($pos_conjoint);
+                            Personne::$retour['boites'][$action_conjoints][]=$conjoint->dessiner($pos_conjoint,$i==0?COUPLE_PREMIER_MARIAGE:COUPLE_REMARIE);
                         }
 
                         $homme=$this->sexe=='H' ? $this : $conjoint;
@@ -322,7 +349,7 @@ class Personne {
                                 Personne::$retour['boites'][$action_enfant][]=$enfant->dessiner($pos_enfant);
                                 Personne::ajouter_a_retour('trait', $action_enfant, $this->lier_avec_enfant($conjoint,$i,$enfant,$conjoint->boite->pos->x));
                                 if ($action_enfant=='creation')
-                                    $enfant->to_bd(); // Puis on ajoute l'enfant en tant que Personne...
+                                    $enfant->addOrUpdate(); // Puis on ajoute l'enfant en tant que Personne...
                                 Personne::$retour['mariages'][$i]['enfants'][$j]=array('id'=>$enfant->id,'action'=>$action_enfant=='creation'?'todo':'already_done');
                                 if (!(ComplexObjectExists('EnfantMariage',array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id)))) {
                                     $o_enfant=new EnfantMariage(array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id));
@@ -351,7 +378,7 @@ class Personne {
                             $dernier_enfant=$enfants[count($r_enfants[0])-1];
                             $fin_enfants_precedents= $dernier_enfant->boite->pos->x + LARGEUR_PERSONNE+ESPACEMENT_INCONNUS;
                         }
-                        $conjoint->to_bd();
+                        $conjoint->addOrUpdate();
                     }
                 }
 		Personne::$niveau_courant--;
@@ -367,7 +394,7 @@ class Personne {
                                                              'action'=>Personne::verifier_peut_parcourir($this->$parent)?'todo':'already_done');
                             $boite_parent=ComplexObjectToGet('Boite',array('id'=>$this->$parent));
 
-                            if (!is_null($boite_parent)/* && $o_parent->getEtat()=='make_tree'*/) { // Le parent est dans la base de données => On a toutes les informations sur lui
+                            if (!is_null($boite_parent)/* && $o_parent->etat=='make_tree'*/) { // Le parent est dans la base de données => On a toutes les informations sur lui
                                 $mariages_pere=ComplexObjectToGet('Mariage',array('conjoint1'=>$this->pere),'all');
                                 $numero_mariage=Mariage::getMariageConcerne($mariages_pere,$this->id);
                                 $mariage=$mariages_pere[$numero_mariage];
@@ -397,7 +424,7 @@ class Personne {
                                     echo 'Mariage de '.$this->pere.' ayant donné '.$this->id.' non trouvé !';
                             }
                             else { // Le père n'a pas encore été parcouru => On fait avec les infos qu'on a
-                                /*$this->from_bd();
+                                /*$this->ComplexMyselfToGet();
 						$champs_utf8=array('prenom','nom','autres','naissance','mort','lieu_naissance','lieu_mort');
 						foreach($champs_utf8 as $champ)
 							$this->$champ=utf8_decode($this->$champ);*/
@@ -417,7 +444,7 @@ class Personne {
                                                            'y'=>$coord_liaison_parents->y-HAUTEUR_PERSONNE/2));
                                 Personne::$retour['boites']['creation'][]=$o_parent->dessiner($pos_boite);
 
-                                $o_parent->to_bd();
+                                $o_parent->addOrUpdate();
                                 $mariage_parents=new Mariage(array('id'=>'','conjoint1'=>$this->pere,'conjoint2'=>$this->mere,'date_mariage'=>'','lieu_mariage'=>''));
                                 $mariage_parents->enfants[0]=$this->id;
                                 $o_parent->mariages[0]=$mariage_parents;
@@ -439,11 +466,9 @@ class Personne {
                     }
                 }
 		Personne::$niveau_courant++;
-		
-		$this->delete_from_bd();
-		$this->to_bd();
-		$this->setEtat('make_tree');
-		//$marge->init();
+
+		$this->etat='make_tree';
+		$this->addOrUpdate();
 		Personne::corriger_cadrage(0,0);
 		return Personne::$retour;
 		
@@ -488,127 +513,10 @@ class Personne {
 		
 		return array($homme_id,$femme_id);
 	}
-	
-	function change_bd($changes) {
-		$nb_changements=0;
-		foreach($changes as $id=>$value) {
-			if (!in_array($id,array('pos')))
-				$nb_changements++;
-			else {
-				switch($id) {
-					case 'pos':case 'pos_x':case 'pos_y':
-						$requete_position_existe='SELECT x,y FROM positions WHERE id LIKE \''.$this->id.'\' AND id_session='.Personne::$id_session;
-						$resultat_position_existe=Requete::query($requete_position_existe);
-						$position_existe=mysql_num_rows($resultat_position_existe)!=0;
-						
-					case 'pos':
-						if ($position_existe) {
-							$requete_change_pos='UPDATE positions SET x='.$value->x.', y='.$value->y.' WHERE id LIKE \''.$this->id.'\' AND id_session='.Personne::$id_session;
-							Requete::query($requete_change_pos);
-						}
-						else {
-							$requete_ajout_pos=' INSERT INTO positions(id,id_session,x,y) VALUES (\''.$this->id.'\', '.Personne::$id_session.','.$value->x.','.$value->y.')';
-							Requete::query($requete_ajout_pos);
-						}
-						$this->boite->pos=new Coord(array('x'=>$value->x,'y'=>$value->y));
-					break;
-					case 'pos_y':
-						if ($position_existe) {
-							$requete_change_pos='UPDATE positions SET y='.$value.' WHERE id LIKE \''.$this->id.'\' AND id_session='.Personne::$id_session;
-							Requete::query($requete_change_pos);
-						}
-						else {
-							$requete_ajout_pos=' INSERT INTO positions(id,id_session,x,y) VALUES (\''.$this->id.'\', '.Personne::$id_session.',NULL,'.$value->y.')';
-							Requete::query($position_existe);
-						}
-						$this->boite->pos->y=$value;
-					break;
-					
-					case 'pos_x':
-						if ($position_existe) {
-							$requete_change_pos='UPDATE positions SET x='.$value->x.' WHERE id LIKE \''.$this->id.'\' AND id_session='.Personne::$id_session;
-							Requete::query($requete_change_pos);
-						}
-						else {
-							$requete_ajout_pos=' INSERT INTO positions(id,id_session,x,y) VALUES (\''.$this->id.'\', '.Personne::$id_session.','.$value->x.',NULL)';
-							Requete::query($position_existe);
-						}
-						$this->boite->pos->x=$value;
-					break;
-				}
-			}
-		}
-		if ($nb_changements>0) {
-			$requete_update='UPDATE personnes ';
-			foreach($changes as $id=>$value)
-				$requete_update.='SET '.$id.'=\''.$value.'\', ';
-			$requete_update.='id=id WHERE id_session='.Personne::$id_session.' AND id LIKE \''.$this->id.'\'';
-			Requete::query($requete_update);
-		}
-	}
-	function delete_from_bd() {
-		$requete='DELETE FROM personnes WHERE id LIKE \''.$this->id.'\' AND id_session='.Personne::$id_session;
-		Requete::query($requete);
-	}
-	
-	
-	function to_bd() {
-		$champs_a_transcrire=array('id','naissance','date_naissance','lieu_naissance','date_mort','lieu_mort','mort','autres','prenom','nom','sexe','pere','mere');
-		
-		$requete='INSERT INTO personnes (`id_session`';
-		foreach($champs_a_transcrire as $champ)
-			$requete.=', `'.$champ.'`';
-		$requete.=',`etat`) ';
-		$requete.='VALUES ('.Personne::$id_session;
-		foreach($champs_a_transcrire as $champ) {
-			if (!is_null($this->$champ) && !empty($this->$champ))
-				$requete.=', \''.addslashes($this->$champ).'\'';
-			else	
-				$requete.=', NULL';
-		}
-		$requete.=', \'En cours\');';
-		Requete::query($requete) or die (mysql_error()); 
-		if (!$this->boite) {
-			echo 'Aucune boite définie pour ajouter '.$this->id;
-			print_r(debug_print_backtrace());
-			exit(0);
-		}
-		$this->boite->addOrUpdate();
-	}
-	
-	function from_bd() {
-		$champs_a_recuperer=array('naissance','date_naissance','lieu_naissance','date_mort','lieu_mort','mort','autres','prenom','nom','sexe','pere','mere');
-		$requete='SELECT id';
-		foreach($champs_a_recuperer as $champ)
-			$requete.=', `'.$champ.'`';
-		$requete.=' FROM personnes WHERE id LIKE \''.$this->id.'\' AND id_session='.Personne::$id_session;
-		$requete_resultat=Requete::query($requete) or die (mysql_error());
-		if ($infos=mysql_fetch_array($requete_resultat)) {
-			foreach($infos as $champ=>$valeur)
-				$this->$champ=$valeur;
-		}
-		else return null;
-		$this->boite=ComplexObjectToGet('Boite',array('id'=>$this->id));
-		if (is_null($this->boite))
-			echo 'Aucune boite définie pour la récupération de '.$this->id;
-		
-	}
-	
+        
 	function afficher() {
 		echo '<u>'.$this->prenom.' '.strtoupper($this->nom).'</u> ('.$this->date_naissance.', '.$this->lieu_naissance.'-'.$this->date_mort.', '.$this->lieu_mort.'), '
 			 .count($this->mariages).' mariage(s)<br />';
-	}
-	
-	function setEtat($etat) {
-		$requete='UPDATE personnes SET etat=\''.$etat.'\' WHERE id LIKE \''.$this->id.'\' AND id_session='.Personne::$id_session;
-		Requete::query($requete) or die (mysql_error());
-	}
-	
-	function getEtat() {
-		$requete='SELECT etat FROM personnes WHERE id LIKE \''.$this->id.'\' AND id_session='.Personne::$id_session;
-		$requete_resultat=Requete::query($requete) or die (mysql_error());
-		while($infos=mysql_fetch_array($requete_resultat))
-			return $infos['etat'];
 	}
 	
 	static function verifier_peut_parcourir($id) {
@@ -810,7 +718,7 @@ class Personne {
 		}
 	}
 	
-	function dessiner($pos_boite=null) {
+	function dessiner($pos_boite=null, $premier_mariage=false) {
 		debug('<br />');
 		debug('Création de '.$this->prenom.' '.$this->nom.'<br />');
 		$marge_gauche= ComplexObjectToGet('Marge',array('niveau'=>Personne::$niveau_courant));
@@ -820,29 +728,49 @@ class Personne {
 			$marge_gauche->add();
 		}
 		if (is_null($pos_boite)) {
-			$marge_boite=new Coord(array('x'=>$marge_gauche->marge,
-										 'y'=>Personne::$niveau_courant*(HAUTEUR_PERSONNE+HAUTEUR_GENERATION)));
+			$coord_boite=new Coord(array('x'=>$marge_gauche->marge,
+                                                     'y'=>Personne::$niveau_courant*(HAUTEUR_PERSONNE+HAUTEUR_GENERATION)));
 			
-			if ($marge_boite->x>0) {
+			if ($coord_boite->x>0) {
 				debug($this->prenom.' '.$this->nom
-					 .' ==> '.$marge_boite->x+LARGEUR_BORDURE*4+ESPACEMENT_INCONNUS.', au lieu de '.$marge_boite->x.'<br />');
-				$marge_boite->x+=LARGEUR_BORDURE*4+ESPACEMENT_INCONNUS;
+					 .' ==> '.$coord_boite->x+LARGEUR_BORDURE*4+ESPACEMENT_INCONNUS.', au lieu de '.$marge_boite->x.'<br />');
+				$coord_boite->x+=LARGEUR_BORDURE*4+ESPACEMENT_INCONNUS;
 			}
 		}
 		else
-			$marge_boite=$pos_boite;
-                $boite_existante=true;
-                while ($boite_existante) {
-                    if (ComplexObjectExists('Boite',array('pos_x>'.($marge_boite->x - (LARGEUR_PERSONNE)),
-                                                          'pos_x<'.($marge_boite->x + (LARGEUR_PERSONNE)),
-                                                          'pos_y>'.($marge_boite->y - (HAUTEUR_PERSONNE+HAUTEUR_GENERATION)),
-                                                          'pos_y<'.($marge_boite->y + (HAUTEUR_PERSONNE+HAUTEUR_GENERATION)))))
-                        $marge_boite->x += LARGEUR_PERSONNE;
-                    else
-                        $boite_existante=false;
-                        
+			$coord_boite=$pos_boite;
+                if ($premier_mariage) { // Premier mariage => décaler les autres boites
+                    $boite_existante=true;
+                    $coord_boite_a_deplacer=clone $coord_boite;
+                    if ($boite_existante) {
+                        $coord_boite_a_deplacer->x += LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
+                        $boites_gauche_a_deplacer=ComplexObjectToGet('Boite',array('pos_x>'.($coord_boite->x - (LARGEUR_PERSONNE)),
+                                                                                   'pos_x<'.($coord_boite->x),
+                                                                                   'pos_y>'.($coord_boite->y - (HAUTEUR_PERSONNE+HAUTEUR_GENERATION)),
+                                                                                   'pos_y<'.($coord_boite->y + (HAUTEUR_PERSONNE+HAUTEUR_GENERATION))),
+                                                                     'all');
+                        if (!is_null($boites_gauche_a_deplacer)) {
+                            foreach($boites_gauche_a_deplacer as $boite_a_deplacer) {
+                                $boite_a_deplacer->deplacerExistanteVers(new Coord(array('x'=>$coord_boite->x+LARGEUR_PERSONNE +  ESPACEMENT_INCONNUS,'y'=>0)));
+                            }
+                        }
+                        else
+                            $boite_existante=false;
+                    }
                 }
-		$this->genererBoite($marge_boite);
+                else { // Sinon, c'est la nouvelle boite qui doit être déplacée
+                    $boite_existante=true;
+                    while ($boite_existante) {
+                        if (ComplexObjectExists('Boite',array('pos_x>'.($coord_boite->x - (LARGEUR_PERSONNE)),
+                                                              'pos_x<'.($coord_boite->x + (LARGEUR_PERSONNE)),
+                                                              'pos_y>'.($coord_boite->y - (HAUTEUR_PERSONNE+HAUTEUR_GENERATION)),
+                                                              'pos_y<'.($coord_boite->y + (HAUTEUR_PERSONNE+HAUTEUR_GENERATION)))))
+                            $coord_boite->x += LARGEUR_PERSONNE;
+                        else
+                            $boite_existante=false;
+                    }
+                }
+		$this->genererBoite($coord_boite);
 		if ($marge_gauche->marge < $this->boite->pos->x+LARGEUR_PERSONNE) {
 			$marge_gauche->marge=$this->boite->pos->x+LARGEUR_PERSONNE;
 			$marge_gauche->update();
@@ -885,7 +813,7 @@ class Personne {
                                        'pos_debut'=>new Coord(array('x'=>$debut_liaison,'y'=>$this->boite->pos->y+($num_mariage*ESPACEMENT_MARIAGES)+HAUTEUR_PERSONNE/2)),
                                        'width'=>$personne_droite->boite->pos->x-$personne_gauche->boite->pos->x-LARGEUR_PERSONNE-LARGEUR_BORDURE*2*4,
                                        'label'=>$date_mariage,
-                                       'name'=>'conjoint',
+                                       'name'=>'liaison',
                                        'type'=>'conjoints')
                                     );
 		$trait->addOrUpdate();
@@ -905,8 +833,8 @@ class Personne {
                                    'border'=>new Border(array('left'=>1)),
                                    'pos_debut'=>$liaison->pos,
                                    'height'=>$pos_trait_enfants_y - $liaison->pos->y,
-                                   'name'=>'enfant type1',
-                                   'type'=>'point_liaison__ligne_enfants')
+                                   'name'=>'liaison_trait_enfants',
+                                   'type'=>'conjoints')
                                 );
             $trait->addOrUpdate();
             $traits[]=$trait;
@@ -930,8 +858,8 @@ class Personne {
                                       'border'=>array('top'=>1),
                                       'pos_debut'=>$pos_trait_enfants,
                                       'width'=>$pos_dernier_enfant->x - $pos_premier_enfant->x - 4*LARGEUR_BORDURE,
-                                      'type'=>'conjoints',
-                                      'name'=>'enfant type3'));
+                                      'name'=>'trait_enfants',
+                                      'type'=>'conjoints'));
 		$trait->addOrUpdate();
                 $traits[]=$trait;
 		return $traits;
@@ -1377,6 +1305,23 @@ function decomposer_naissance_mort ($str) {
 	if (!$lieu) $lieu='';
 	return array($date,$lieu);
 }
+
+Personne::$note_supplementaire='Source : Arbre généalogique Geneanet de Jean-Marcel Boidier';
+
+Personne::$regex_etat_civil='#<td class="highlight2">&nbsp; .tat civil</td>[^<]*</tr></table>[^<]*<ul>[^<]*'
+				 .'((?:<li>[^<]*</li>[^<]*)+)</ul>#isu';
+Personne::$regex_parents='#<td class="highlight2">&nbsp; Parents</td>[^<]*</tr></table>[^<]*<ul>[^<]*'
+					    .Personne::$ligne_personne_classique.'(?:(?:(?!</li>).)*)</li>[^<]*'
+					    .Personne::$ligne_personne_classique.'#isu';
+Personne::$regex_mariages='#<td class="highlight2">&nbsp; Mariage(?:\()?s?(?:\))? (?:et enfant(?:\()?s?(?:\))?)?(?:<span[^>]+>[^>]*>)*</td>[^<]*</tr></table>(?:[^<]*</h3>)?[^<]*(<ul>[^<]*'
+					     .'(?:<li style="vertical\-align: middle;list\-style\-type: (?:circle|disc|square)">Mari.e? ?(?:<em>[^<]+</em>)?[^a]*avec <a href="(?:[^"]+)">(?:[^<]+)</a>(?: <em><bdo dir="ltr">[^<]*</bdo></em>)?'
+					     .'(?:(?:(?!, dont).)*, dont[^<]*<ul>[^<]*(?:'.Personne::$ligne_personne_classique2.'(?:(?:(?!</li>).)*)</li>[^<]*)+</ul>)*[^<]*</li>[^<]*)+</ul>)#isuU';
+Personne::$regex_mariages_conjoints='#<li style="vertical\-align: middle;list\-style\-type: (circle|disc|square)">Mari.e? ?((?:<em>[^<]+</em>)?)[^a]*avec <a href="([^"]+)">([^<]+)</a>(?: <em><bdo dir="ltr">[^<]*</bdo></em>)?'
+			   					   .'((?:(?:(?!, dont).)*, dont[^<]*<ul>[^<]*(?:'.Personne::$ligne_personne_classique2.'(?:(?:(?!</li>).)*)</li>[^<]*)+</ul>)?)[^<]*</li>#isu';
+Personne::$regex_mariages_enfants='#'.Personne::$ligne_personne_classique.'#isu';
+Personne::$regex_patronyme='#<img src="http://images.geneanet\.org/v3/pictos_geneweb/[^/]+/(?:(?:saisie-(?:homme|femme))|sexeinconnu)\.gif" alt="(H|F|\?)" title="(?:H|F|\?)" />'
+						  .'</td>[^<]*<td class="highlight2">&nbsp;(?:(?:[^<]*<a href="[^"]*">([^<]+)</a>[^<]*<a href="[^"]*">([^<]+)</a>)|..([^<]*)</td>)#isu';
+
 
 if (isset($_POST['analyse'])) {
 	Personne::$id_session=$_POST['id_session'];

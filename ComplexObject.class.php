@@ -144,7 +144,8 @@ class ComplexObject {
 	}
 	
 	function getNext ($champ) {
-		$requete='SELECT Max('.$champ.') AS max FROM '.getNomTable(get_class($this)).' WHERE id_session='.Personne::$id_session;
+            if ($champ==='id3') return 'NULL';
+            $requete='SELECT Max('.$champ.') AS max FROM '.getNomTable(get_class($this)).' WHERE id_session='.Personne::$id_session;
 		$resultat=Requete::query($requete);
 		if ($infos=mysql_fetch_array($resultat)) {
 			//echo 'Max '.getNomTable(get_class($this)).' : '.$infos['max'];

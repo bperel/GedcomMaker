@@ -81,10 +81,18 @@ class Trait extends ComplexObject{
 		return $concernes;
 	}
 	
-	static function getTraitsConcernesPar($id1,$id2) {
+	static function getTraitsConcernesPar($id1,$id2=null) {
 		$requete='SELECT '.implode(', ',$this->getBDFields()).' '
 				.'FROM traits '
-				.'WHERE id_session='.Personne::$id_session.' AND (id LIKE \''.$id.'\' OR id2 LIKE \''.$id2.'\' OR id3 IS NULL)';
+				.'WHERE id_session='.Personne::$id_session.' AND (';
+                $fields_to_check=array('id','id2','id3');
+                foreach($fields_to_check as $i=>$field) {
+                    if ($i==0)
+                        $requete.='0=1 ';
+                    $requete.='OR '.$field.' LIKE \''.$id.'\' ';
+                    if (!is_null($id2))
+                        $requete.='OR '.$field.' LIKE \''.$id2.'\' ';
+                }
 		$resultat_requete=Requete::query($requete);
 		$traits=array();
 		while ($infos=mysql_fetch_array($resultat_requete)) {

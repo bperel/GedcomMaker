@@ -13,35 +13,49 @@ class Boite extends ComplexObject {
 	var $pos;
 	var $dimension;
 	
-	/*
-	function get($filtres, $str_all) {
-		$boites= parent::get($filtres,$str_all);
-		if (!is_null($boites)) {
-			if (is_array($boites))
-				foreach($boites as $boite)
-					$boite->fixNiveauCourant();
-			else
-				$boites->fixNiveauCourant();
-		}
-		return $boites;
-	}*/
-	
 	function fixNiveauCourant() {
 		Personne::$niveau_courant=intval($this->pos->y / (HAUTEUR_PERSONNE+HAUTEUR_GENERATION));
 		//echo 'Boite trouvee en y='.$this->pos->y.', niveau courant fixe a '.Personne::$niveau_courant."\n";
 	}
-	
-	static function changeToBD() {
-		$requete='UPDATE boites SET ';
-		$debut=true;
-		foreach($this as $id=>$value) {
-			$bd_values=$this->attributeToBDValues($id);
-			foreach($bd_values as $bd_index=>$bd_val) {
-				$requete.=($debut?'':', ').$bd_index.'='.(is_null($bd_val)?$bd_val:'\''.$bd_val.'\'');
-				$debut=false;
-			}
-		}
-		$requete.=' WHERE id=\''.$this->id.'\' AND id_session='.Personne::$id_session;
-		Requete::query($requete) or die(mysql_error());
-	}
+
+        function deplacerExistanteDe(Coord $coord) {
+            $this->pos->incr($coord->x,$coord->y);
+            $traits_concernes=Trait::getTraitsConcernesPar($this->id);
+            $enfants_mariage=ComplexObjectToGet('EnfantMariage', array('id_mariage'=>$mariage->id), 'all');
+            foreach($traits_concernes as $trait) {
+                switch ($trait->type) {
+                    case 'conjoints' :
+                        $mariage=ComplexObjectToGet('Mariage', array('conjoint1'=>$trait->id,'conjoint2'=>$trait->id2));
+                        switch($trait->name) {
+                            case 'conjoint': case 'liaison_trait_enfants': // Trait de liaison /  Trait entre la liaison et le trait des enfants
+                                $trait->pos_debut->incr($coord->x, $coord->y);
+                                $trait->update();
+                            case 'liaison_trait_enfants': // Trait entre la liaison et le trait des enfants
+                                $trait_enfants=ComplexObjectToGet('Trait', array('id'=>$trait->id,'id2'=>$trait->id2,'name'=>'trait_enfants'));
+                                if ($trait->pos_debut->x < $trait_enfants->pos_debut->x) {// Le trait vertical a une abscisse inférieure au trait des enfants
+                                    $trait_enfants->pos_debut->decr($coord->x, $coord->y);
+                                    /*foreach ($enfants_mariage as $enfant_mariage) {
+                                        $boite_enfant=ComplexObjectToGet('Boite', array('id'=>$enfant_mariage->id_enfant));
+                                        $boite_enfant->deplacerExistanteDe(new Coord(array('x'=>-1*(LARGEUR_PERSONNE + LARGEUR_BORDURE * 4),'y'=>0)));
+                                    }*/
+                                }
+                                if ($trait->pos_debut->x > $trait_enfants->pos_debut->x + $trait_enfants->width) { // Le trait vertical a une abscisse supérieure à la fin du trait des enfants
+                                    $trait_enfants->pos_debut->decr($coord->x,$coord->y);
+                                    /*foreach ($enfants_mariage as $enfant_mariage) {
+                                        $boite_enfant=ComplexObjectToGet('Boite', array('id'=>$enfant_mariage->id_enfant));
+                                        $boite_enfant->deplacerExistanteDe(new Coord(array('x'=>LARGEUR_PERSONNE + LARGEUR_BORDURE * 4,'y'=>0)));
+                                    }*/
+                                }
+                                $trait_enfants->update();
+                            break;
+
+                        }
+                    break;
+                }
+            }
+        }
+
+        function deplacerExistanteVers(Coord $coord) {
+            $this->deplacerExistanteDe (new Coord(array('x'=>$coord->x - $this->pos->x, 'y'=>$coord->y - $this->pos->y)));
+        }
 }
