@@ -14,6 +14,23 @@ class ComplexObject {
 				$this->setFromBD($index,$value);
 		}
 	}
+
+        function exists($filtres=array()) {
+            $nom_table=getNomTable(get_class($this));
+            $requete='SELECT EXISTS(SELECT 1 '
+                    .'FROM '.$nom_table.' '
+                    .'WHERE id_session='.Personne::$id_session;
+            foreach($filtres as $champ=>$valeur) {
+                if (is_int($champ))
+                    $requete.=' AND '.$valeur;
+                else
+                    $requete.=' AND '.$champ.' LIKE \''.$valeur.'\'';
+            }
+            $requete.=') AS existe';
+            $resultat_requete=Requete::query($requete) or die(mysql_error());
+            if ($infos=mysql_fetch_array($resultat_requete))
+                return $infos['existe']==1;
+        }
 	
 	function get($filtres=array(),$str_all=false) {
 		$all=$str_all=='all';
@@ -171,6 +188,11 @@ function getNomTable($nom_classe) {
 function ComplexObjectToGet($type, $filtres=array(),$str_all=false) {
 	$complexObject=new $type();
 	return $complexObject->get($filtres,$str_all);
+}
+
+function ComplexObjectExists($type,$filtres=array()) {
+    $complexObject=new $type();
+    return $complexObject->exists($filtres);
 }
 /**
  * Retourne une seule valeur, et non un tableau comme ComplexObjectToGet

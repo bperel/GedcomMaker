@@ -243,7 +243,7 @@ class Personne {
 		else
 			$this->sexe=$sexe;
 			
-		if (is_null(ComplexObjectToGet('Boite',array('id'=>$this->id)))) {
+		if (!(ComplexObjectExists('Boite',array('id'=>$this->id)))) {
                     Personne::$retour['boites']['creation'][]=$this->dessiner();
                     if (is_null($this->boite))
                             echo 'Boite non créée';
@@ -291,9 +291,9 @@ class Personne {
                             $pos_conjoint=new Coord(array('x'=>$this->boite->pos->x,'y'=>$this->boite->pos->y));
                             $pos_conjoint->x+=($conjoint->sexe=='F' ? 1 : -1)*(LARGEUR_PERSONNE+ESPACEMENT_EPOUX+LARGEUR_BORDURE*4);
                             $action_conjoints='creation';
+                            Personne::$retour['boites'][$action_conjoints][]=$conjoint->dessiner($pos_conjoint);
                         }
 
-                        Personne::$retour['boites'][$action_conjoints][]=$conjoint->dessiner($pos_conjoint);
                         $homme=$this->sexe=='H' ? $this : $conjoint;
                         $femme=$this->sexe=='H' ? $conjoint : $this;
                         //if (!$conjoint_existe_bd) {
@@ -324,7 +324,7 @@ class Personne {
                                 if ($action_enfant=='creation')
                                     $enfant->to_bd(); // Puis on ajoute l'enfant en tant que Personne...
                                 Personne::$retour['mariages'][$i]['enfants'][$j]=array('id'=>$enfant->id,'action'=>$action_enfant=='creation'?'todo':'already_done');
-                                if (is_null(ComplexObjectToGet('EnfantMariage',array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id)))) {
+                                if (!(ComplexObjectExists('EnfantMariage',array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id)))) {
                                     $o_enfant=new EnfantMariage(array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id));
                                     $o_enfant->add(); // ... Et l'enfant en tant que relation avec ses parents
                                 }
@@ -387,7 +387,7 @@ class Personne {
                                                              'y'=>$coords_liaison->y-HAUTEUR_PERSONNE/2));
                                     $boite_parent->update();
                                     //Vérifier que ces traits ne sont pas déjà dessinés
-                                    if (!is_null(ComplexObjectToGet('Trait',array('id'=>$this->pere, 'id2'=>$this->mere, 'id3'=>$this->id))) && $parent=='pere') {
+                                    if (!(ComplexObjectExists('Trait',array('id'=>$this->pere, 'id2'=>$this->mere, 'id3'=>$this->id))) && $parent=='pere') {
                                         $liaison=new Liaison(array('id'=>$this->pere, 'id2'=>$this->mere,'pos'=>$coords_liaison));
                                         $liaison->update();
                                         Personne::ajouter_a_retour('trait', 'modif', $this->lier_avec_pere($pere,$liaison,$ids_enfants,$numero_mariage));
@@ -831,6 +831,17 @@ class Personne {
 		}
 		else
 			$marge_boite=$pos_boite;
+                $boite_existante=true;
+                while ($boite_existante) {
+                    if (ComplexObjectExists('Boite',array('pos_x>'.($marge_boite->x - (LARGEUR_PERSONNE)),
+                                                          'pos_x<'.($marge_boite->x + (LARGEUR_PERSONNE)),
+                                                          'pos_y>'.($marge_boite->y - (HAUTEUR_PERSONNE+HAUTEUR_GENERATION)),
+                                                          'pos_y<'.($marge_boite->y + (HAUTEUR_PERSONNE+HAUTEUR_GENERATION)))))
+                        $marge_boite->x += LARGEUR_PERSONNE;
+                    else
+                        $boite_existante=false;
+                        
+                }
 		$this->genererBoite($marge_boite);
 		if ($marge_gauche->marge < $this->boite->pos->x+LARGEUR_PERSONNE) {
 			$marge_gauche->marge=$this->boite->pos->x+LARGEUR_PERSONNE;
@@ -935,7 +946,7 @@ class Personne {
 		$pos_trait_enfant=new Coord(array('x'=>$enfant->boite->pos->x + LARGEUR_PERSONNE/2,
 						  'y'=>$liaison->pos->y + HAUTEUR_PERSONNE/2+HAUTEUR_GENERATION/2 - $num_mariage*ESPACEMENT_MARIAGES));
 		
-		if (is_null(ComplexObjectToGet('Boite',array('id'=>$enfant->id))))
+		if (!(ComplexObjectExists('Boite',array('id'=>$enfant->id))))
                     $pos_reelle=$enfant->boite->pos;
                 else
                     $pos_reelle=ComplexObjectFieldToGet('Boite','pos',array('id'=>$enfant->id));
