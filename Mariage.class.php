@@ -11,15 +11,27 @@ class Mariage extends ComplexObject{
 	static $traitement_special=array('enfants');
 	
 	function get($filtres, $str_all) {
-		$this->enfants=$this->getEnfants();
-		if (is_null($this->enfants))
-			$this->enfants=array();
-		return parent::get($filtres,$str_all);
+            $o=parent::get($filtres,$str_all);
+            if (!is_null($o)) {
+                if (!is_array($o))
+                    $o=array($o);
+                foreach($o as $i=>$objet) {
+                    $o[$i]->enfants=array();
+                    $enfants_mariage= ComplexObjectToGet('EnfantMariage',array('id_mariage'=>$o[$i]->id),'all');
+                    if (!is_null($enfants_mariage)) {
+                        foreach($enfants_mariage as $j=>$enfant_mariage) {
+                            $o[$i]->enfants[$j]=$enfant_mariage->id_enfant;
+                        }
+                    }
+                }
+            }
+            return $str_all==='all'?$o : $o[0];
 	}
 	
 	function add() {
-		$this->addEnfants($this->enfants);
-		parent::add();
+            $this->id=$this->getNext('id');
+        $this->addEnfants($this->enfants);
+            parent::add();
 	}
 	
 	function update() {
@@ -27,16 +39,14 @@ class Mariage extends ComplexObject{
 	}
 	
 	function getEnfants() {
-		if (is_null($this->id))
-			$this->id=$this->getNext('id');
-		return ComplexObjectToGet('EnfantMariage',array('id_mariage'=>$this->id),'all');
+            
 	}
 	
 	function addEnfants(array $enfants) {
-		foreach($enfants as $id_enfant) {
-			$enfantmariage=new EnfantMariage(array('id_enfant'=>$id_enfant,'id_mariage'=>$this->id));
-			$enfantmariage->add();
-		}
+            foreach($enfants as $id_enfant) {
+                $enfantmariage=new EnfantMariage(array('id_enfant'=>$id_enfant,'id_mariage'=>$this->id));
+                $enfantmariage->add();
+            }
 	}
 	
 	function detecter_non_references() {

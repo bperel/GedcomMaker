@@ -26,7 +26,7 @@ function loadPersonne (id, id_caller) {
 	ajax_is_loading=true;
 	id_g=id;
 	new Ajax.Request('Personne.class.php', {
-		parameters:script+'=true&id_session='+id_session_g+'&serveur='+serveur_g+'&pseudo='+pseudo_g+'&autres_args='+id.replace('%',';pcnt;')+'&caller='+id_caller.replace('%',';pcnt;'), 
+		parameters:script+'=true&site_source='+site_source+'&id_session='+id_session_g+'&serveur='+serveur_g+'&pseudo='+pseudo_g+'&autres_args='+id.replace('%',';pcnt;')+'&caller='+id_caller.replace('%',';pcnt;'),
 		asynchronous: true,
 		onSuccess: function(transport) {
 			var resultat=transport.headerJSON;
@@ -171,7 +171,9 @@ function id_to_caller(id) {
 }
 
 function ajouter_barre(niveau, id, id_caller,type, etat, id_conjoint) {
-	var texte=id;
+	if ($(id))
+            return 0;
+        var texte=id;
 	if (id_to_caller(id)!='')
 		etat='already_done';
 	

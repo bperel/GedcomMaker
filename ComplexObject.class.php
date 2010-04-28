@@ -89,11 +89,14 @@ class ComplexObject {
 	function addOrUpdate() {
 		$filter=array();
 		foreach(static::$identifiants as $identifiant)
-			$filter[$identifiant]=$this->$identifiant;
-		if (is_null(ComplexObjectToGet(get_class($this),$filter)))
-			$this->add();
-		else
-			$this->update();
+                    $filter[$identifiant]=$this->$identifiant;
+
+		if (ComplexObjectExists(get_class($this),$filter)) {
+                    $this->update();
+                }
+		else {
+                    $this->add();
+                }
 	}
 	
 	function getBDFields(){
