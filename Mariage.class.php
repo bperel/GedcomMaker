@@ -38,10 +38,6 @@ class Mariage extends ComplexObject{
 		parent::update();
 	}
 	
-	function getEnfants() {
-            
-	}
-	
 	function addEnfants(array $enfants) {
             foreach($enfants as $id_enfant) {
                 $enfantmariage=new EnfantMariage(array('id_enfant'=>$id_enfant,'id_mariage'=>$this->id));
@@ -78,4 +74,13 @@ class Mariage extends ComplexObject{
             }
             return null;
         }
+
+        function getNumeroEnfantFratrie ($id_enfant) {
+            $enfants_mariage=ComplexObjectToGet('EnfantMariage', array('id_mariage'=>$this->id),'all');
+            foreach ($enfants_mariage as $num_enfant=>$enfant_mariage) {
+                if ($id_enfant==$enfant_mariage->id_enfant)
+                    return $num_enfant;
+            }
+            return null;
+	}
 }?>

@@ -5,9 +5,11 @@ class ComplexObject {
 	static $traitement_special=array();
 	
 	function ComplexObject(array $args=array()) {
-		if (isset(static::$prefixes_objets))
-			foreach(static::$prefixes_objets as $variable=>$type)
-                            $this->$variable=new $type();
+		if (isset(static::$prefixes_objets)) {
+                    foreach(static::$prefixes_objets as $variable=>$type) {
+                        $this->$variable=new $type();
+                    }
+                }
 				
 		foreach($args as $index=>$value) {
 			if ($index!='prefixes_objets' /*&& !in_array($index,static::$traitement_special)*/)
@@ -62,7 +64,7 @@ class ComplexObject {
 		$nom_classe=get_class($this);
 		$nom_table=getNomTable($nom_classe);
 		$requete='INSERT INTO '.$nom_table.' ('.implode(', ',ComplexObject::getBDFields()).', id_session) '
-				.'VALUES ('.implode(', ',ComplexObject::getFormattedValues()).', '.Personne::$id_session.')';
+			.'VALUES ('.implode(', ',ComplexObject::getFormattedValues()).', '.Personne::$id_session.')';
 		Requete::query($requete) or die(mysql_error());
 	}
 	
@@ -110,16 +112,17 @@ class ComplexObject {
 	
 	function getFormattedValues(){
 		$fields=array();
-		foreach($this as $attr=>$val)
-			if ($attr!='prefixes_objets' && !in_array($attr,static::$traitement_special))
+		foreach($this as $attr=>$val) {
+			if ($attr!='prefixes_objets' && !in_array($attr,static::$traitement_special)) 
 				$fields=array_merge($fields,static::attributeToBDValues($attr));
+                }
 		return $fields;
 	}
 	
 	function attributeToBDFields($index) {
-		$pos_underscore=strpos($index,'_');
+		$pos_underscore=strrpos($index,'_');
 		$bd_fields=array();
-		if (array_key_exists($index,static::$prefixes_objets) || ($pos_underscore!==null && array_key_exists(substr($index,0,$pos_underscore),static::$prefixes_objets))) {
+		if (array_key_exists($index,static::$prefixes_objets)) {
 			foreach($this->$index as $attr=>$val)
 				$bd_fields[]=$index.'_'.$attr;
 		}
@@ -130,15 +133,14 @@ class ComplexObject {
 	}
 	
 	function attributeToBDValues($index) {
-		$pos_underscore=strpos($index,'_');
 		$bd_values=array();
-		if (array_key_exists($index,static::$prefixes_objets) || ($pos_underscore!==null && array_key_exists(substr($index,0,$pos_underscore),static::$prefixes_objets))) {
+		if (array_key_exists($index,static::$prefixes_objets)) {
 			foreach($this->$index as $attr=>$val) {
 				$bd_values[$index.'_'.$attr]=toNullableString($val);
                         }
 		}
 		else {
-			if ((is_null($this->$index) || $this->$index==='') && in_array($index,static::$identifiants))
+			if ((is_null($this->$index) || empty($this->$index)) && in_array($index,static::$identifiants))
 				$bd_values[$index]=$this->getNext($index);
 			else
 				$bd_values[$index]=toNullableString($this->$index);
@@ -163,26 +165,28 @@ class ComplexObject {
 	}
 	
 	function setFromBD($index,$value) {
-		$pos_underscore=strpos($index,'_');
-		if ($pos_underscore===null)
-			$this->$index=$value;
-		else {
-			$prefixe=substr($index,0,$pos_underscore);
-			if (isset(static::$prefixes_objets) && array_key_exists($prefixe,static::$prefixes_objets)) {
-				$champ=substr($index,strrpos($index,'_')+1,strlen($index)-strrpos($index,'_')-1);
-				$this->$prefixe->$champ=$value;
-			}
-			else {
-				$this->$index=$value;
-			}
-		}	
+            $pos_last_underscore=strrpos($index,'_');
+            if (!$pos_last_underscore || !array_key_exists(substr($index,0,$pos_last_underscore), static::$prefixes_objets))
+                $this->$index=$value;
+            else {
+                $prefixe=substr($index,0,$pos_last_underscore);
+                $attr=substr($index,$pos_last_underscore+1,strlen($index)-$pos_last_underscore-1);
+                $this->$prefixe->$attr=$value;
+            //if (!isset($this->$prefixe))
+            //    $this->$prefixe=new static::$prefixes_objets[$index];
+            } 
 	}
 }
 
 function toNullableString($string) {
 	if (is_null($string))
 		return 'NULL';
-	else return '\''.str_replace("'","",$string).'\'';
+	else {
+            if (is_object($string)) {
+                $a=1;
+            }
+            return '\''.str_replace("'","",$string).'\'';
+        }
 }
 	
 function getNomTable($nom_classe) {

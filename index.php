@@ -6,6 +6,7 @@ include_once('Mariage.class.php');
 include_once('Level.class.php');
 
 Personne::$id_session=$id_session;
+Personne::$site_source='Geneanet';
 //Personne::initMake_tree();
 
 $args=isset($_GET['args']) ? $_GET['args'] : (isset ($_POST['args']) ? $_POST['args'] : null);
@@ -18,9 +19,8 @@ $args=isset($_GET['args']) ? $_GET['args'] : (isset ($_POST['args']) ? $_POST['a
 else {*/
 	$serveur='gw2';
 	$pseudo='jboidier';
-	$id='p=jean;n=veurier;oc=2';
+	$id='p=francois;n=veurier';
 //}
-Personne::$nom_domaine='http://'.$serveur.'.geneanet.org/';
 $url='http://'.$serveur.'.geneanet.org/index.php3?b='.$pseudo.'&lang=fr;'.$id;
 
 global $personne_source;
@@ -43,6 +43,7 @@ $personne_source=new Personne($url);
 		var serveur_g='<?php echo $serveur;?>';
 		var pseudo_g='<?php echo $pseudo;?>';
 		var id_source='<?php echo $personne_source->id;?>';
+		var site_source='Geneanet';
 		var script='analyse'; 
 		pile_personnes.push(id_source);
 	</script>

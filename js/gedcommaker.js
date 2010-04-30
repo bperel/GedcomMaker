@@ -85,13 +85,14 @@ function loadPersonne (id, id_caller) {
 						afficher_boite(resultat.boites.modif[i]);
 					}
 				}
-				if (decalage_top != resultat.decalage.top || decalage_left != resultat.decalage.left) {
+				//if (decalage_top != resultat.decalage.top || decalage_left != resultat.decalage.left) {
 					$$('.personne, .trait').each (function(el) { 
-										el.style.top = parseInt(el.style.top) + (resultat.decalage.top) + "px";
-										el.style.left = parseInt(el.style.left) + (resultat.decalage.left) + "px";});
+                                            el.style.marginTop = resultat.decalage.top + "px";
+                                            el.style.marginLeft = resultat.decalage.left + "px";
+                                        });
 					decalage_left=resultat.decalage.left;
 					decalage_top=resultat.decalage.top;
-				}
+				//}
 			    if (nb_barres_ajoutees==0)
 			    	definir_termine(id_g);
 			}
@@ -116,6 +117,7 @@ function trait_to_id(trait) {
             id=trait.id2+'~'+trait.id;
 	if (trait.id3)
 		id+='~'+trait.id3;
+        id+='~~'+trait.name;
 	return id;
 }
 

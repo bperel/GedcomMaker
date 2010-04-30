@@ -13,7 +13,7 @@ class Boite extends ComplexObject {
 	var $pos;
 	var $dimension;
 	
-	function fixNiveauCourant() {
+	function fixerNiveauCourant() {
 		Personne::$niveau_courant=intval($this->pos->y / (HAUTEUR_PERSONNE+HAUTEUR_GENERATION));
 		//echo 'Boite trouvee en y='.$this->pos->y.', niveau courant fixe a '.Personne::$niveau_courant."\n";
 	}
@@ -21,11 +21,11 @@ class Boite extends ComplexObject {
         function deplacerExistanteDe(Coord $coord) {
             $this->pos->incr($coord->x,$coord->y);
             $traits_concernes=Trait::getTraitsConcernesPar($this->id);
-            $enfants_mariage=ComplexObjectToGet('EnfantMariage', array('id_mariage'=>$mariage->id), 'all');
             foreach($traits_concernes as $trait) {
                 switch ($trait->type) {
                     case 'conjoints' :
                         $mariage=ComplexObjectToGet('Mariage', array('conjoint1'=>$trait->id,'conjoint2'=>$trait->id2));
+                        $enfants_mariage=ComplexObjectToGet('EnfantMariage', array('id_mariage'=>$mariage->id), 'all');
                         switch($trait->name) {
                             case 'conjoint': case 'liaison_trait_enfants': // Trait de liaison /  Trait entre la liaison et le trait des enfants
                                 $trait->pos_debut->incr($coord->x, $coord->y);
@@ -57,5 +57,33 @@ class Boite extends ComplexObject {
 
         function deplacerExistanteVers(Coord $coord) {
             $this->deplacerExistanteDe (new Coord(array('x'=>$coord->x - $this->pos->x, 'y'=>$coord->y - $this->pos->y)));
+        }
+
+        static function existe_par_ici($coords, $ids_a_exclure) {
+            $liste_x=array();
+            $liste_y=array();
+            foreach($coords as $coord) {
+                $liste_x[]=$coord->x;
+                $liste_y[]=$coord->y;
+            }
+            $min=new Coord(array('x'=>min($liste_x), 'y'=>min($liste_y)));
+            $max=new Coord(array('x'=>max($liste_x), 'y'=>max($liste_y)));
+            $intervalle_a_verifier=new Intervalle(array(
+                'pos1'=>new Coord(array('x'=>$min->x - LARGEUR_PERSONNE,
+                                        'y'=>$min->y - HAUTEUR_PERSONNE)),
+                'pos2'=>new Coord(array('x'=>$max->x + LARGEUR_PERSONNE,
+                                        'y'=>$max->y + HAUTEUR_PERSONNE))));
+            return Boite::existe_dans_intervalle($intervalle_a_verifier,$ids_a_exclure);
+        }
+
+        static function existe_dans_intervalle(Intervalle $intervalle, $ids_a_exclure) {
+            $conditions=array('pos_x>'.$intervalle->pos1->x,
+                              'pos_x<'.$intervalle->pos2->x,
+                              'pos_y>'.$intervalle->pos1->y,
+                              'pos_y<'.$intervalle->pos2->y);
+            foreach($ids_a_exclure as $id_a_exclure)
+                $conditions=array_merge($conditions,array('id NOT LIKE \''.$id_a_exclure.'\''));
+            return ComplexObjectExists('Boite',$conditions);
+
         }
 }

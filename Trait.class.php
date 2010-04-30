@@ -47,10 +47,6 @@ class Trait extends ComplexObject{
             parent::add();
 	}
 
-	function update() {
-            parent::update();
-	}
-
         function addOrUpdate() {
             $this->liaison->addOrUpdate();
             parent::addOrUpdate();

@@ -211,9 +211,9 @@ Geneanet::$regex_parents='#<td class="highlight2">&nbsp; Parents</td>[^<]*</tr><
                         .Geneanet::$ligne_geneanet_classique.'#isu';
 Geneanet::$regex_mariages='#<td class="highlight2">&nbsp; Mariage(?:\()?s?(?:\))? (?:et enfant(?:\()?s?(?:\))?)?(?:<span[^>]+>[^>]*>)*</td>[^<]*</tr></table>(?:[^<]*</h3>)?[^<]*(<ul>[^<]*'
                          .'(?:<li style="vertical\-align: middle;list\-style\-type: (?:circle|disc|square)">Mari.e? ?(?:<em>[^<]+</em>)?[^a]*avec <a href="(?:[^"]+)">(?:[^<]+)</a>(?: <em><bdo dir="ltr">[^<]*</bdo></em>)?'
-                         .'(?:(?:(?!, dont).)*, dont[^<]*<ul>[^<]*(?:'.Geneanet::$ligne_geneanet_classique2.'(?:(?:(?!</li>).)*)</li>[^<]*)+</ul>)*[^<]*</li>[^<]*)+</ul>)#isuU';
+                         .'(?:(?:</li>)|(?:(?:(?:(?!, dont).)*, dont[^<]*<ul>[^<]*(?:'.Geneanet::$ligne_geneanet_classique2.'(?:(?:(?!</li>).)*)</li>[^<]*)+</ul>)*[^<]*</li>[^<]*)+</ul>)+))#isuU';
 Geneanet::$regex_mariages_conjoints='#<li style="vertical\-align: middle;list\-style\-type: (circle|disc|square)">Mari.e? ?((?:<em>[^<]+</em>)?)[^a]*avec <a href="([^"]+)">([^<]+)</a>(?: <em><bdo dir="ltr">[^<]*</bdo></em>)?'
-                                   .'((?:(?:(?!, dont).)*, dont[^<]*<ul>[^<]*(?:'.Geneanet::$ligne_geneanet_classique2.'(?:(?:(?!</li>).)*)</li>[^<]*)+</ul>)?)[^<]*</li>#isu';
+                                   .'(?:(?:</li>)|(?:((?:(?:(?!, dont).)*, dont[^<]*<ul>[^<]*(?:'.Geneanet::$ligne_geneanet_classique2.'(?:(?:(?!</li>).)*)</li>[^<]*)+</ul>)?)[^<]*</li>))#isuU';
 Geneanet::$regex_mariages_enfants='#'.Geneanet::$ligne_geneanet_classique.'#isu';
 Geneanet::$regex_patronyme='#<img src="http://images.geneanet\.org/v3/pictos_geneweb/[^/]+/(?:(?:saisie-(?:homme|femme))|sexeinconnu)\.gif" alt="(H|F|\?)" title="(?:H|F|\?)" />'
                           .'</td>[^<]*<td class="highlight2">&nbsp;(?:(?:[^<]*<a href="[^"]*">([^<]+)</a>[^<]*<a href="[^"]*">([^<]+)</a>)|..([^<]*)</td>)#isu';
