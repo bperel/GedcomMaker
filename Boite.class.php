@@ -59,7 +59,7 @@ class Boite extends ComplexObject {
             $this->deplacerExistanteDe (new Coord(array('x'=>$coord->x - $this->pos->x, 'y'=>$coord->y - $this->pos->y)));
         }
 
-        static function existe_par_ici($coords, $ids_a_exclure) {
+        static function getDeplacementAFaire($coords, $ids_a_exclure) {
             $liste_x=array();
             $liste_y=array();
             foreach($coords as $coord) {
@@ -73,7 +73,17 @@ class Boite extends ComplexObject {
                                         'y'=>$min->y - HAUTEUR_PERSONNE)),
                 'pos2'=>new Coord(array('x'=>$max->x + LARGEUR_PERSONNE,
                                         'y'=>$max->y + HAUTEUR_PERSONNE))));
-            return Boite::existe_dans_intervalle($intervalle_a_verifier,$ids_a_exclure);
+            $x_debut=$intervalle_a_verifier->pos1->x;
+            $espacement_pos=$intervalle_a_verifier->pos2->x - $intervalle_a_verifier->pos1->x;
+            $boite_existante=true;
+            while (!is_null($boite_existante)) {
+                if (is_object($boite_existante)) {
+                    $intervalle_a_verifier->pos1->x=$boite_existante->pos->x + ESPACEMENT_INCONNUS;
+                    $intervalle_a_verifier->pos2->x=$boite_existante->pos->x + ESPACEMENT_INCONNUS + $espacement_pos;
+                }
+                $boite_existante=Boite::existe_dans_intervalle($intervalle_a_verifier,$ids_a_exclure);
+            }
+            return $intervalle_a_verifier->pos1->x - $x_debut;
         }
 
         static function existe_dans_intervalle(Intervalle $intervalle, $ids_a_exclure) {
@@ -83,7 +93,16 @@ class Boite extends ComplexObject {
                               'pos_y<'.$intervalle->pos2->y);
             foreach($ids_a_exclure as $id_a_exclure)
                 $conditions=array_merge($conditions,array('id NOT LIKE \''.$id_a_exclure.'\''));
-            return ComplexObjectExists('Boite',$conditions);
-
+            $boites_existantes=ComplexObjectToGet('Boite',$conditions,'all');
+            if (is_null($boites_existantes))
+                return null;
+            usort($boites_existantes,'trier_pos_boites');
+            return $boites_existantes[0];
         }
+}
+
+function trier_pos_boites($boite1, $boite2) {
+    if ($boite1->pos->x == $boite2->pos->y)
+        return 0;
+    return ($boite1->pos->x < $boite2->pos->y)? 1 : -1;
 }

@@ -610,17 +610,16 @@ class Personne extends ComplexObject{
                         $coords[]=$boite_personne_depart->pos;
                     $ids_a_exclure[]=$boite_personne_depart->id;
                 }
-                while (Boite::existe_par_ici($coords,$ids_a_exclure)) {
-                    foreach($coords as &$coord)
-                        $coord->x+=LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
-                    $deplacement_x+=LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
-                }
+                $deplacement_a_faire=Boite::getDeplacementAFaire($coords,$ids_a_exclure);
+                foreach($coords as &$coord)
+                    $coord->x+=$deplacement_a_faire;
+                
             }
-            if ((!is_null($boite_personne_depart)) && $deplacement_x>0) { // Mettre à jour les traits existants de la boite déplacée
+            if ((!is_null($boite_personne_depart)) && $deplacement_a_faire>0) { // Mettre à jour les traits existants de la boite déplacée
                 $boite_personne_depart->update();
                 $trait_vers_trait_enfants=ComplexObjectToGet('Trait', array('id3'=>$boite_personne_depart->id,'type'=>'ligne_enfants__enfant'));
                 if (!is_null($trait_vers_trait_enfants)) {
-                    $trait_vers_trait_enfants->pos_debut->x+=$deplacement_x;
+                    $trait_vers_trait_enfants->pos_debut->x+=$deplacement_a_faire;
                     Personne::ajouter_a_retour('trait', 'modif', $trait_vers_trait_enfants);
                     $trait_vers_trait_enfants->update();
                     $trait_enfants=ComplexObjectToGet('Trait', array('id'=>$trait_vers_trait_enfants->id,'id2'=>$trait_vers_trait_enfants->id2,
