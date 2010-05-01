@@ -96,22 +96,20 @@ class Geneanet {
         else
             $o->sexe = $sexe;
                     
-        preg_match(Geneanet::$regex_mariages,$page,$r_mariages);
+        preg_match_all(Geneanet::$regex_mariages_conjoints,$page,$r_mariages);
         $o->mariages=array();
-        if (isset($r_mariages[1])) {
-            preg_match_all(Geneanet::$regex_mariages_conjoints,$r_mariages[1],$r_mariages_conjoints);
-
-            for($i=0;$i<count($r_mariages_conjoints[0]);$i++) {
-                $url_conjoint=Geneanet::$nom_domaine.$r_mariages_conjoints[3][$i];
-                if (!empty($r_mariages_conjoints[2][$i])) { // Détails mariage
-                    preg_match(Geneanet::$regex_mariages_conjoints_details,$r_mariages_conjoints[2][$i],$r_detail_mariage);
+        if (isset($r_mariages)) {
+            foreach(array_keys($r_mariages[0]) as $i) {
+                $url_conjoint=Geneanet::$nom_domaine.$r_mariages[3][$i];
+                if (!empty($r_mariages[2][$i])) { // Détails mariage
+                    preg_match(Geneanet::$regex_mariages_conjoints_details,$r_mariages[2][$i],$r_detail_mariage);
                     list($date_mariage,$lieu_mariage)=Geneanet::decomposer_naissance_mort($r_detail_mariage[1].$r_detail_mariage[2]);
                 }
                 else
                     $date_mariage=$lieu_mariage='';
                 $enfants=array();
-                if (!empty($r_mariages_conjoints[5][$i])) { // Enfants
-                    preg_match_all(Geneanet::$regex_mariages_enfants,$r_mariages_conjoints[5][$i],$r_enfants);
+                if (!empty($r_mariages[5][$i])) { // Enfants
+                    preg_match_all(Geneanet::$regex_mariages_enfants,$r_mariages[5][$i],$r_enfants);
                     for($j=0;$j<count($r_enfants[0]);$j++) {
                         $url_enfant=Geneanet::$nom_domaine.$r_enfants[2][$j];
                         $enfants[]=Geneanet::url_to_id($url_enfant);

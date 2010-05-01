@@ -231,12 +231,13 @@ class Personne extends ComplexObject{
 		else {
                     $action_boite='modif';
                     $this->genererBoite(ComplexObjectToGet('Boite',array('id'=>$this->id))->pos);
-                    $this->boite;
 		}
 		$this->boite->addOrUpdate();
                 if (count($this->mariages)>0) {
                     $fin_enfants_precedents=0;
                     foreach($this->mariages as $i=>$mariage) {
+                        if ($i>0)
+                            $this->boite->pos=ComplexObjectFieldToGet('Boite','pos',array('id'=>$this->id));
                         $id_conjoint=$this->sexe=='H'?$mariage->conjoint2 : $mariage->conjoint1;
                         $conjoint=new Personne($id_conjoint,'I','?','?','',$id_conjoint,'...',null,null);
                         list($id_homme,$id_femme)=Personne::toHomme_Femme($this,$id_conjoint);
@@ -244,18 +245,17 @@ class Personne extends ComplexObject{
                         $conjoint->setEtat('En cours');
                         $conjoint_existe_bd=ComplexObjectExists('Personne', array('id'=>$id_conjoint));
                         if ($conjoint_existe_bd) {
-                            $boite_conjoint=ComplexObjectToGet('Boite',array('id'=>$id_conjoint));
-                            $conjoint->boite=$boite_conjoint;
+                            $conjoint->boite=ComplexObjectToGet('Boite',array('id'=>$id_conjoint));
                             if (ComplexObjectExists('Trait', array('id'=>$id_homme,'id2'=>$id_femme,'type'=>'conjoints')))
                                 $liaison=ComplexObjectFieldToGet('Trait','liaison',array('id'=>$id_homme,'id2'=>$id_femme,'type'=>'conjoints'));
                             else
                                 $liaison=ComplexObjectFieldToGet('Trait','liaison',array('id'=>$id_femme,'id2'=>$id_homme,'type'=>'conjoints'));
-                            $pos_conjoint=$boite_conjoint->pos;
+                            $pos_conjoint=$conjoint->boite->pos;
                             $action_conjoints='modif';
                         }
                         else {
                             $pos_conjoint=new Coord(array('x'=>$this->boite->pos->x,'y'=>$this->boite->pos->y));
-                            $pos_conjoint->x+=($conjoint->sexe=='F' ? 1 : -1)*(LARGEUR_PERSONNE+ESPACEMENT_EPOUX+LARGEUR_BORDURE*4);
+                            $pos_conjoint->x+=($conjoint->sexe=='F' ? 1 : -1)*($i+1)*(LARGEUR_PERSONNE+ESPACEMENT_EPOUX+LARGEUR_BORDURE*4);
                             $action_conjoints='creation';
                             if (($this->sexe==='H' ||$conjoint->sexe==='F') && $this->boite->pos->x > $pos_conjoint->x)
                                 list($this->boite->pos,$pos_conjoint)=Coord::echanger($this->boite->pos, $pos_conjoint);
@@ -301,7 +301,7 @@ class Personne extends ComplexObject{
                             $mariage->update();
                         }
 
-                        $famille_existante=false;
+                        /*$famille_existante=false;
                         foreach(Personne::$liste_familles as $famille) {
                             if ($famille_existante) break;
                             if (($famille->conjoint1==$this->id && $famille->conjoint2==$url_conjoint)
@@ -310,7 +310,7 @@ class Personne extends ComplexObject{
                         }
                         if (!$famille_existante)
                             array_push(Personne::$liste_familles,$mariage);
-
+                        */
                         if (count($mariage->enfants)>0) {
                             $id_dernier_enfant=$this->mariages[$i]->enfants[count($this->mariages[$i]->enfants)-1];
                             $boite_dernier_enfant=ComplexObjectToGet('boite',array('id'=>$id_dernier_enfant));
@@ -559,65 +559,67 @@ class Personne extends ComplexObject{
 		}
 	}
 	
-	function dessiner($pos_boite=null, $premier_mariage=false, Boite &$boite_personne_depart=null) {
-		debug('<br />');
-		debug('Création de '.$this->prenom.' '.$this->nom.'<br />');
-		$marge_gauche= ComplexObjectToGet('Marge',array('niveau'=>Personne::$niveau_courant));
-		if (!$marge_gauche) {
-			echo 'Marge gauche creee';
-			$marge_gauche=new Marge(array('niveau'=>Personne::$niveau_courant,'marge'=>0));
-			$marge_gauche->add();
-		}
-		if (is_null($pos_boite)) {
-			$coord_boite=new Coord(array('x'=>$marge_gauche->marge,
-                                                     'y'=>Personne::$niveau_courant*(HAUTEUR_PERSONNE+HAUTEUR_GENERATION)));
-			
-			if ($coord_boite->x>0) {
-				debug($this->prenom.' '.$this->nom
-					 .' ==> '.$coord_boite->x+LARGEUR_BORDURE*4+ESPACEMENT_INCONNUS.', au lieu de '.$marge_boite->x.'<br />');
-				$coord_boite->x+=LARGEUR_BORDURE*4+ESPACEMENT_INCONNUS;
-			}
-		}
-		else
-			$coord_boite=$pos_boite;
-                $premier_mariage=false;
-                if ($premier_mariage) { // Premier mariage => décaler les autres boites
-                    $boite_existante=true;
-                    $coord_boite_a_deplacer=clone $coord_boite;
-                    if ($boite_existante) {
-                        $coord_boite_a_deplacer->x += LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
-                        $boites_gauche_a_deplacer=ComplexObjectToGet('Boite',array('pos_x>'.($coord_boite->x - (LARGEUR_PERSONNE)),
-                                                                                   'pos_x<'.($coord_boite->x),
-                                                                                   'pos_y>'.($coord_boite->y - (HAUTEUR_PERSONNE+HAUTEUR_GENERATION)),
-                                                                                   'pos_y<'.($coord_boite->y + (HAUTEUR_PERSONNE+HAUTEUR_GENERATION))),
-                                                                     'all');
-                        if (!is_null($boites_gauche_a_deplacer)) {
-                            foreach($boites_gauche_a_deplacer as $boite_a_deplacer) {
-                                $boite_a_deplacer->deplacerExistanteVers(new Coord(array('x'=>$coord_boite->x+LARGEUR_PERSONNE +  ESPACEMENT_INCONNUS,'y'=>0)));
-                            }
+	function dessiner($pos_boite=null, $premier_mariage=false, Boite $boite_personne_depart=null) {
+            debug('<br />');
+            debug('Création de '.$this->prenom.' '.$this->nom.'<br />');
+            $marge_gauche= ComplexObjectToGet('Marge',array('niveau'=>Personne::$niveau_courant));
+            if (!$marge_gauche) {
+                    echo 'Marge gauche creee';
+                    $marge_gauche=new Marge(array('niveau'=>Personne::$niveau_courant,'marge'=>0));
+                    $marge_gauche->add();
+            }
+            if (is_null($pos_boite)) {
+                    $coord_boite=new Coord(array('x'=>$marge_gauche->marge,
+                                                 'y'=>Personne::$niveau_courant*(HAUTEUR_PERSONNE+HAUTEUR_GENERATION)));
+
+                    if ($coord_boite->x>0) {
+                            debug($this->prenom.' '.$this->nom
+                                     .' ==> '.$coord_boite->x+LARGEUR_BORDURE*4+ESPACEMENT_INCONNUS.', au lieu de '.$marge_boite->x.'<br />');
+                            $coord_boite->x+=LARGEUR_BORDURE*4+ESPACEMENT_INCONNUS;
+                    }
+            }
+            else
+                    $coord_boite=$pos_boite;
+            $premier_mariage=false;
+            if ($premier_mariage) { // Premier mariage => décaler les autres boites
+                $boite_existante=true;
+                $coord_boite_a_deplacer=clone $coord_boite;
+                if ($boite_existante) {
+                    $coord_boite_a_deplacer->x += LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
+                    $boites_gauche_a_deplacer=ComplexObjectToGet('Boite',array('pos_x>'.($coord_boite->x - (LARGEUR_PERSONNE)),
+                                                                               'pos_x<'.($coord_boite->x),
+                                                                               'pos_y>'.($coord_boite->y - (HAUTEUR_PERSONNE+HAUTEUR_GENERATION)),
+                                                                               'pos_y<'.($coord_boite->y + (HAUTEUR_PERSONNE+HAUTEUR_GENERATION))),
+                                                                 'all');
+                    if (!is_null($boites_gauche_a_deplacer)) {
+                        foreach($boites_gauche_a_deplacer as $boite_a_deplacer) {
+                            $boite_a_deplacer->deplacerExistanteVers(new Coord(array('x'=>$coord_boite->x+LARGEUR_PERSONNE +  ESPACEMENT_INCONNUS,'y'=>0)));
                         }
-                        else
-                            $boite_existante=false;
                     }
+                    else
+                        $boite_existante=false;
                 }
-                else { // Sinon, c'est la nouvelle boite qui doit être déplacée
-                    $boite_a_cet_endroit=true;
-                    $deplacement_x=0;
-                    $coords=array($coord_boite);
-                    $ids_a_exclure=array();
-                    if (!is_null($boite_personne_depart)) {
+            }
+            else { // Sinon, c'est la nouvelle boite qui doit être déplacée
+                $boite_a_cet_endroit=true;
+                $deplacement_x=0;
+                $coords=array($coord_boite);
+                $ids_a_exclure=array();
+                if (!is_null($boite_personne_depart)) {
+                    if (!ComplexObjectExists('Mariage',array('conjoint1'=>$boite_personne_depart->id)))
                         $coords[]=$boite_personne_depart->pos;
-                        $ids_a_exclure[]=$boite_personne_depart->id;
-                    }
-                    while (Boite::existe_par_ici($coords,$ids_a_exclure)) {
-                        foreach($coords as &$coord)
-                            $coord->x+=LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
-                        $deplacement_x+=LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
-                    }
+                    $ids_a_exclure[]=$boite_personne_depart->id;
                 }
-                if ((!is_null($boite_personne_depart)) && $deplacement_x>0) { // Mettre à jour les traits existants de la boite déplacée
-                    $boite_personne_depart->update();
-                    $trait_vers_trait_enfants=ComplexObjectToGet('Trait', array('id3'=>$boite_personne_depart->id,'type'=>'ligne_enfants__enfant'));
+                while (Boite::existe_par_ici($coords,$ids_a_exclure)) {
+                    foreach($coords as &$coord)
+                        $coord->x+=LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
+                    $deplacement_x+=LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
+                }
+            }
+            if ((!is_null($boite_personne_depart)) && $deplacement_x>0) { // Mettre à jour les traits existants de la boite déplacée
+                $boite_personne_depart->update();
+                $trait_vers_trait_enfants=ComplexObjectToGet('Trait', array('id3'=>$boite_personne_depart->id,'type'=>'ligne_enfants__enfant'));
+                if (!is_null($trait_vers_trait_enfants)) {
                     $trait_vers_trait_enfants->pos_debut->x+=$deplacement_x;
                     Personne::ajouter_a_retour('trait', 'modif', $trait_vers_trait_enfants);
                     $trait_vers_trait_enfants->update();
@@ -639,12 +641,13 @@ class Personne extends ComplexObject{
                         }
                     }
                 }
-		$this->genererBoite($coord_boite);
-		if ($marge_gauche->marge < $this->boite->pos->x+LARGEUR_PERSONNE) {
-			$marge_gauche->marge=$this->boite->pos->x+LARGEUR_PERSONNE;
-			$marge_gauche->update();
-		}
-		return $this->boite;
+            }
+            $this->genererBoite($coord_boite);
+            if ($marge_gauche->marge < $this->boite->pos->x+LARGEUR_PERSONNE) {
+                    $marge_gauche->marge=$this->boite->pos->x+LARGEUR_PERSONNE;
+                    $marge_gauche->update();
+            }
+            return $this->boite;
 	}
 	
 	function genererBoite($pos) {

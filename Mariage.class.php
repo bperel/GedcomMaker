@@ -37,7 +37,38 @@ class Mariage extends ComplexObject{
 	function update() {
 		parent::update();
 	}
-	
+
+        function exists($filtres=array()) {
+            $filtres2=$filtres;
+            if (array_key_exists('conjoint1',$filtres)) {
+                if (array_key_exists('conjoint2',$filtres)) {
+                    $existe1=parent::exists($filtres);
+                    $filtres['conjoint1']=$filtres2['conjoint2'];
+                    $filtres['conjoint2']=$filtres2['conjoint1'];
+                    $existe2=parent::exists($filtres);
+                    return $existe1 || $existe2;
+                }
+                else {
+                    $existe1=parent::exists($filtres);
+                    $filtres['conjoint2']=$filtres['conjoint1'];
+                    unset($filtres['conjoint1']);
+                    $existe2=parent::exists($filtres);
+                    return $existe1 || $existe2;
+                }
+            } 
+            else {
+                if (array_key_exists('conjoint2',$filtres)) {
+                    $existe1=parent::exists($filtres);
+                    $filtres['conjoint1']=$filtres['conjoint2'];
+                    unset($filtres['conjoint2']);
+                    $existe2=parent::exists($filtres);
+                    return $existe1 || $existe2;
+                }
+                else
+                    return parent::exists($filtres);
+            }
+        }
+
 	function addEnfants(array $enfants) {
             foreach($enfants as $id_enfant) {
                 $enfantmariage=new EnfantMariage(array('id_enfant'=>$id_enfant,'id_mariage'=>$this->id));
@@ -67,6 +98,8 @@ class Mariage extends ComplexObject{
 	static function getMariageConcerne ($liste_mariages, $id_enfant) {
             foreach($liste_mariages as $num_mariage=>$mariage) {
                 $enfants_mariage=ComplexObjectToGet('EnfantMariage', array('id_mariage'=>$mariage->id),'all');
+                if (is_null($enfants_mariage))
+                    fatal_error('Aucun enfant pour le mariage '.$mariage->id);
                 foreach($enfants_mariage as $enfant_mariage) {
                     if ($id_enfant==$enfant_mariage->id_enfant)
                         return $num_mariage;

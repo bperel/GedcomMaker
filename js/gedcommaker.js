@@ -135,7 +135,7 @@ function afficher_trait(trait) {
 	if (trait.height)
 		eltrait.setStyle({'height':trait.height+'px'});
 	if (trait.label)
-		eltrait.update(trait.label);
+		eltrait.update(new Element('span').setStyle({'position':'relative','top':'-3px'}).update(label));
 	else
 		eltrait.update('&nbsp;');
 }
