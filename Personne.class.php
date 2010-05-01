@@ -720,7 +720,10 @@ class Personne extends ComplexObject{
 		$id_mere=$this->sexe!='H'?$this->id:$conjoint->id;
                 $liaison=ComplexObjectToGet('Liaison', array('id'=>$id_pere,'id2'=>$id_mere));
                 $pos_premier_enfant=ComplexObjectFieldToGet('Boite','pos',array('id'=>$mariage->enfants[0]));
-		$pos_dernier_enfant=ComplexObjectFieldToGet('Boite','pos',array('id'=>$mariage->enfants[count($mariage->enfants)-1]));
+                if (count($mariage->enfants)==1)
+                    $pos_dernier_enfant=new Coord(array('x'=>$pos_premier_enfant->x+1,$pos_premier_enfant->y));
+		else
+                    $pos_dernier_enfant=ComplexObjectFieldToGet('Boite','pos',array('id'=>$mariage->enfants[count($mariage->enfants)-1]));
 
 		$pos_trait_enfants=new Coord(array('x'=>$pos_premier_enfant->x + LARGEUR_PERSONNE/2,
                                                    'y'=>$liaison->pos->y + HAUTEUR_PERSONNE/2+HAUTEUR_GENERATION/2 - $num_mariage*ESPACEMENT_MARIAGES));
@@ -755,7 +758,7 @@ class Personne extends ComplexObject{
 							   'liaison'=>$liaison,
 							   'border'=>new Border(array('left'=>1)),
 							   'pos_debut'=>new Coord(array('x'=>$pos_reelle->x+LARGEUR_PERSONNE/2,'y'=>$pos_trait_enfant->y)),
-							   'height'=>HAUTEUR_GENERATION/2-$num_mariage*ESPACEMENT_MARIAGES,
+							   'height'=>HAUTEUR_GENERATION/2,
 							   'name'=>'enfant type2',
 							   'type'=>'ligne_enfants__enfant')
 							);

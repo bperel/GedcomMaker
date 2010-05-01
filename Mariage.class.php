@@ -99,7 +99,7 @@ class Mariage extends ComplexObject{
             foreach($liste_mariages as $num_mariage=>$mariage) {
                 $enfants_mariage=ComplexObjectToGet('EnfantMariage', array('id_mariage'=>$mariage->id),'all');
                 if (is_null($enfants_mariage))
-                    fatal_error('Aucun enfant pour le mariage '.$mariage->id);
+                    continue;
                 foreach($enfants_mariage as $enfant_mariage) {
                     if ($id_enfant==$enfant_mariage->id_enfant)
                         return $num_mariage;
