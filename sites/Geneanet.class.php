@@ -4,8 +4,8 @@ class Geneanet {
     static $ligne_geneanet_classique='<li style="vertical\-align: middle;list\-style\-type: (circle|disc|square);?">(?:<img[^>]*> )?<a href="([^"]+)">([^<]+)</a>';
     static $ligne_geneanet_classique2='<li style="vertical\-align: middle;list\-style\-type: (?:circle|disc|square);?">(?:<img[^>]*> )?<a href="[^"]+">[^<]+</a>';
     static $regex_etat_civil;
-    static $regex_etat_civil_naissance='#^N.e?([^<]*)#isu';
-    static $regex_etat_civil_deces='#^D.c.d.e?([^<]*)#isu';
+    static $regex_etat_civil_naissance='#^N.\(?e?\)?([^<]*)#isu';
+    static $regex_etat_civil_deces='#^D.c.d.\(?e?\)?([^<]*)#isu';
     static $regex_etat_civil_autres='#<li>([^<]*)</li>#isu';
     static $regex_parents;
     static $regex_mariages;
