@@ -259,7 +259,7 @@ class Personne extends ComplexObject{
                             $action_conjoints='creation';
                             if (($this->sexe==='H' ||$conjoint->sexe==='F') && $this->boite->pos->x > $pos_conjoint->x)
                                 list($this->boite->pos,$pos_conjoint)=Coord::echanger($this->boite->pos, $pos_conjoint);
-                            Personne::$retour['boites'][$action_conjoints][]=$conjoint->dessiner($pos_conjoint,$i==0?COUPLE_PREMIER_MARIAGE:COUPLE_REMARIE, $this->boite);
+                            Personne::$retour['boites'][$action_conjoints][]=$conjoint->dessiner($pos_conjoint, $this, true);
                         }
 
                         $homme=$this->sexe=='H' ? $this : $conjoint;
@@ -286,7 +286,7 @@ class Personne extends ComplexObject{
                                                             'y'=>$this->boite->pos->y+HAUTEUR_PERSONNE+HAUTEUR_GENERATION));
                                 $enfant_existe_en_bd=ComplexObjectExists('Personne',array('id'=>$enfant->id));
                                 $action_enfant=$enfant_existe_en_bd?'modif':'creation';
-                                Personne::ajouter_a_retour('boite', $action_enfant, $enfant->dessiner($pos_enfant));
+                                Personne::ajouter_a_retour('boite', $action_enfant, $enfant->dessiner($pos_enfant, $this, false));
                                 Personne::ajouter_a_retour('trait', $action_enfant, $this->lier_avec_enfant($conjoint,$i,$enfant,$conjoint->boite->pos->x));
                                 if ($action_enfant=='creation')
                                     $enfant->addOrUpdate(); // Puis on ajoute l'enfant en tant que Personne...
@@ -366,7 +366,7 @@ class Personne extends ComplexObject{
                                 $o_parent->sexe=($parent=='pere')?'H':'F';
                                 $pos_boite=new Coord(array('x'=>$coord_liaison_parents->x+($parent=='pere'?(-1*(ESPACEMENT_EPOUX/2+LARGEUR_PERSONNE)):ESPACEMENT_EPOUX/2),
                                                            'y'=>$coord_liaison_parents->y-HAUTEUR_PERSONNE/2));
-                                Personne::ajouter_a_retour('boite', 'creation', $o_parent->dessiner($pos_boite));
+                                Personne::ajouter_a_retour('boite', 'creation', $o_parent->dessiner($pos_boite, $this, false));
 
                                 $o_parent->addOrUpdate();
                                 $mariage_parents=new Mariage(array('id'=>'','conjoint1'=>$this->pere,'conjoint2'=>$this->mere,'date_mariage'=>'','lieu_mariage'=>''));
@@ -559,7 +559,9 @@ class Personne extends ComplexObject{
 		}
 	}
 	
-	function dessiner($pos_boite=null, $premier_mariage=false, Boite $boite_personne_depart=null) {
+	function dessiner($pos_boite=null, Personne $personne_depart=null, $est_conjoint=false) {
+            if (!is_null($personne_depart))
+                $boite_personne_depart=$personne_depart->boite;
             debug('<br />');
             debug('Création de '.$this->prenom.' '.$this->nom.'<br />');
             $marge_gauche= ComplexObjectToGet('Marge',array('niveau'=>Personne::$niveau_courant));
@@ -580,27 +582,8 @@ class Personne extends ComplexObject{
             }
             else
                     $coord_boite=$pos_boite;
-            $premier_mariage=false;
-            if ($premier_mariage) { // Premier mariage => décaler les autres boites
-                $boite_existante=true;
-                $coord_boite_a_deplacer=clone $coord_boite;
-                if ($boite_existante) {
-                    $coord_boite_a_deplacer->x += LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
-                    $boites_gauche_a_deplacer=ComplexObjectToGet('Boite',array('pos_x>'.($coord_boite->x - (LARGEUR_PERSONNE)),
-                                                                               'pos_x<'.($coord_boite->x),
-                                                                               'pos_y>'.($coord_boite->y - (HAUTEUR_PERSONNE+HAUTEUR_GENERATION)),
-                                                                               'pos_y<'.($coord_boite->y + (HAUTEUR_PERSONNE+HAUTEUR_GENERATION))),
-                                                                 'all');
-                    if (!is_null($boites_gauche_a_deplacer)) {
-                        foreach($boites_gauche_a_deplacer as $boite_a_deplacer) {
-                            $boite_a_deplacer->deplacerExistanteVers(new Coord(array('x'=>$coord_boite->x+LARGEUR_PERSONNE +  ESPACEMENT_INCONNUS,'y'=>0)));
-                        }
-                    }
-                    else
-                        $boite_existante=false;
-                }
-            }
-            else { // Sinon, c'est la nouvelle boite qui doit être déplacée
+            if (isset($personne_depart)) {
+                $deplacement_a_faire=0;
                 $boite_a_cet_endroit=true;
                 $deplacement_x=0;
                 $coords=array($coord_boite);
@@ -610,33 +593,55 @@ class Personne extends ComplexObject{
                         $coords[]=$boite_personne_depart->pos;
                     $ids_a_exclure[]=$boite_personne_depart->id;
                 }
-                $deplacement_a_faire=Boite::getDeplacementAFaire($coords,$ids_a_exclure);
+                $deplacement_a_faire=Boite::getDeplacementAFaire($coords,$ids_a_exclure, $est_conjoint);
                 foreach($coords as &$coord)
                     $coord->x+=$deplacement_a_faire;
-                
-            }
-            if ((!is_null($boite_personne_depart)) && $deplacement_a_faire>0) { // Mettre à jour les traits existants de la boite déplacée
-                $boite_personne_depart->update();
-                $trait_vers_trait_enfants=ComplexObjectToGet('Trait', array('id3'=>$boite_personne_depart->id,'type'=>'ligne_enfants__enfant'));
-                if (!is_null($trait_vers_trait_enfants)) {
-                    $trait_vers_trait_enfants->pos_debut->x+=$deplacement_a_faire;
-                    Personne::ajouter_a_retour('trait', 'modif', $trait_vers_trait_enfants);
-                    $trait_vers_trait_enfants->update();
-                    $trait_enfants=ComplexObjectToGet('Trait', array('id'=>$trait_vers_trait_enfants->id,'id2'=>$trait_vers_trait_enfants->id2,
-                                                                     'name'=>'trait_enfants'));
-                    if (!is_null($trait_enfants)) {
-                        $trait_enfants_modifie=false;
-                        if ($trait_enfants->pos_debut->x > $trait_vers_trait_enfants->pos_debut->x) {
-                            $trait_enfants->pos_debut->x=$trait_vers_trait_enfants->pos_debut->x;
-                            $trait_enfants_modifie=true;
+
+                if ($est_conjoint) { // Mariage => décaler les autres boites
+                    $largeur_a_deplacer=abs($coord_boite->x - $boite_personne_depart->pos->x) + LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
+                    $mariage_parents=ComplexObjectToGet('Mariage', array('conjoint1'=>$personne_depart->pere, 'conjoint2'=>$personne_depart->mere));
+                    if (!is_null($mariage_parents)) {
+                        $personnes_fratrie=ComplexObjectToGet('EnfantMariage', array('id_mariage'=>$mariage_parents->id),'all');
+                        $numero_enfant_courant=$mariage_parents->getNumeroEnfantFratrie($boite_personne_depart->id);
+                        if ($numero_enfant_courant < count($mariage_parents->enfants) && !is_null($personnes_fratrie)) {
+                            $boites_fratrie=array();
+                            foreach($personnes_fratrie as $i=>$enfant_mariage) {
+                                if ($i>$numero_enfant_courant) {
+                                    $boites_fratrie[]=ComplexObjectToGet('Boite',array('id'=>$enfant_mariage->id_enfant));
+                                }
+                            }
+                            Boite::deplacerBoites($boites_fratrie, new Coord(array('x'=>$largeur_a_deplacer,'y'=>0)));
+                            Personne::ajouter_a_retour('boite', 'modif', Boite::$liste_boites_deplacees);
+                            Personne::ajouter_a_retour('trait', 'modif', Boite::$liste_traits_deplaces);
                         }
-                        if ($trait_enfants->pos_debut->x + $trait_enfants->width < $trait_vers_trait_enfants->pos_debut->x) {
-                            $trait_enfants->width=$trait_vers_trait_enfants->pos_debut->x - $trait_enfants->pos_debut->x - LARGEUR_BORDURE*4;
-                            $trait_enfants_modifie=true;
-                        }
-                        if ($trait_enfants_modifie) {
-                            Personne::ajouter_a_retour('trait', 'modif', $trait_enfants);
-                            $trait_enfants->update();
+                    }
+                }
+                else { // Sinon, c'est la nouvelle boite qui doit être déplacée
+                    
+                }
+                if ((!is_null($boite_personne_depart)) && $deplacement_a_faire>0) { // Mettre à jour les traits existants de la boite déplacée
+                    $boite_personne_depart->update();
+                    $trait_vers_trait_enfants=ComplexObjectToGet('Trait', array('id3'=>$boite_personne_depart->id,'type'=>'ligne_enfants__enfant'));
+                    if (!is_null($trait_vers_trait_enfants)) {
+                        $trait_vers_trait_enfants->pos_debut->x+=$deplacement_a_faire;
+                        Personne::ajouter_a_retour('trait', 'modif', $trait_vers_trait_enfants);
+                        $trait_vers_trait_enfants->update();
+                        $trait_enfants=ComplexObjectToGet('Trait', array('id'=>$trait_vers_trait_enfants->id,'id2'=>$trait_vers_trait_enfants->id2,
+                                                                         'name'=>'trait_enfants'));
+                        if (!is_null($trait_enfants)) {
+                            $trait_enfants_modifie=false;
+                            if ($trait_enfants->pos_debut->x > $trait_vers_trait_enfants->pos_debut->x) {
+                                $trait_enfants->pos_debut->x=$trait_vers_trait_enfants->pos_debut->x;
+                                $trait_enfants_modifie=true;
+                            }
+                            if ($trait_enfants->pos_debut->x + $trait_enfants->width < $trait_vers_trait_enfants->pos_debut->x) {
+                                $trait_enfants->width=$trait_vers_trait_enfants->pos_debut->x - $trait_enfants->pos_debut->x - LARGEUR_BORDURE*4;
+                                $trait_enfants_modifie=true;
+                            }
+                            if ($trait_enfants_modifie) {
+                                Personne::ajouter_a_retour('trait', 'modif', $trait_enfants);
+                                $trait_enfants->update();
+                            }
                         }
                     }
                 }
@@ -861,7 +866,7 @@ class Personne extends ComplexObject{
 								 'width'=>$droite-$gauche,
 								 'type'=>'conjoints',
 								 'name'=>'enfant type3'));
-			$trait->add();
+			$trait->addOrUpdate();
 			Personne::$retour['traits']['creation'][]=$trait;
 		}
 		

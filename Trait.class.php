@@ -77,18 +77,13 @@ class Trait extends ComplexObject{
 		return $concernes;
 	}
 	
-	static function getTraitsConcernesPar($id1,$id2=null) {
+	function getTraitsConcernesPar($id) {
 		$requete='SELECT '.implode(', ',$this->getBDFields()).' '
-				.'FROM traits '
-				.'WHERE id_session='.Personne::$id_session.' AND (';
-                $fields_to_check=array('id','id2','id3');
-                foreach($fields_to_check as $i=>$field) {
-                    if ($i==0)
-                        $requete.='0=1 ';
-                    $requete.='OR '.$field.' LIKE \''.$id.'\' ';
-                    if (!is_null($id2))
-                        $requete.='OR '.$field.' LIKE \''.$id2.'\' ';
-                }
+                        .'FROM traits '
+                        .'WHERE id_session='.Personne::$id_session.' '
+                        .'AND (id LIKE \''.$id.'\''
+                        .' OR id2 LIKE \''.$id.'\''
+                        .' OR id3 LIKE \''.$id.'\')';
 		$resultat_requete=Requete::query($requete);
 		$traits=array();
 		while ($infos=mysql_fetch_array($resultat_requete)) {
@@ -97,7 +92,7 @@ class Trait extends ComplexObject{
 		return $traits;
 	}
 	
-	static function getTraitsCouple($id, $id2, $filtre=array()) {
+	function getTraitsCouple($id, $id2, $filtre=array()) {
 		$requete='SELECT '.implode(', ',$this->getBDFields()).' '
 				.'FROM traits '
 				.'WHERE id LIKE \''.$id.'\' AND id2 LIKE \''.$id2.'\' AND id_session='.Personne::$id_session;

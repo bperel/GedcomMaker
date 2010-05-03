@@ -33,7 +33,7 @@ class ComplexObject {
             if ($infos=mysql_fetch_array($resultat_requete))
                 return $infos['existe']==1;
         }
-	
+
 	function get($filtres=array(),$str_all=false) {
 		$all=$str_all=='all';
 		$nom_classe=get_class($this);
@@ -50,11 +50,11 @@ class ComplexObject {
 		$resultat_requete=Requete::query($requete) or die(mysql_error());
 		$objets=array();
 		while ($infos=mysql_fetch_array($resultat_requete)) {
-			$infos2=array();
-			foreach($infos as $champ=>$valeur)
-				if (!is_integer($champ))
-					$infos2[$champ]=$valeur;
-			$objets[]=new $nom_classe($infos2);
+                    $infos2=array();
+                    foreach($infos as $champ=>$valeur)
+                            if (!is_integer($champ))
+                                    $infos2[$champ]=$valeur;
+                    $objets[]=new $nom_classe($infos2);
 		}
 		return count($objets)==0 ? null : ($all ? $objets : $objets[0]);
 	}
@@ -165,6 +165,8 @@ class ComplexObject {
 	}
 	
 	function setFromBD($index,$value) {
+            if(is_integer($index))
+                return;
             $pos_last_underscore=strrpos($index,'_');
             if (!$pos_last_underscore || !array_key_exists(substr($index,0,$pos_last_underscore), static::$prefixes_objets))
                 $this->$index=$value;
@@ -176,6 +178,20 @@ class ComplexObject {
             //    $this->$prefixe=new static::$prefixes_objets[$index];
             } 
 	}
+
+        function equals($other) {
+            foreach($this as $attr=>$value) {
+                if (in_array($attr,static::$identifiants)) {
+                    if (is_object($value)) {
+                        if (!($value->equals($other->$attr)))
+                            return false;
+                    }
+                    elseif ($value!==$other->$attr)
+                        return false;
+                }
+            }
+            return true;
+        }
 }
 
 function toNullableString($string) {
@@ -205,10 +221,14 @@ function ComplexObjectExists($type,$filtres=array()) {
 /**
  * Retourne une seule valeur, et non un tableau comme ComplexObjectToGet
  */
-function ComplexObjectFieldToGet($type,$champ,$filtres=array()) {
+function ComplexObjectFieldToGet($type,$champ,$filtres=array(),$no_error=false) {
 	$o=ComplexObjectToGet($type,$filtres);
-	if (is_null($o))
-		fatal_error('Can\'t get object '.$type.' ('.implode(',',$filtres).')');
+	if (is_null($o)) {
+            if ($no_error)
+                return null;
+            else
+                fatal_error('Can\'t get object '.$type.' ('.implode(',',$filtres).')');
+        }
 
 	$valeur_champ=null;
 	$pos=(strpos($champ,'->'));

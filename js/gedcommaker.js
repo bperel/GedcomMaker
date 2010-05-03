@@ -142,10 +142,10 @@ function afficher_trait(trait) {
 
 function afficher_boite(boite) {
 	var elboite=new Element('div',{'id':'boite_'+boite.id}).addClassName('personne '+boite.sexe)
-										    	     .setStyle({'left':boite.pos.x+'px','top':boite.pos.y+'px',
-										    		   		    'width':boite.dimension.width+'px','height':boite.dimension.height+'px'})
-										    	     .update(boite.contenu)
-										    	     .insert(new Element('div').addClassName('recursion').update(boite.recursion));
+                                                               .setStyle({'left':boite.pos.x+'px','top':boite.pos.y+'px',
+                                                                          'width':boite.dimension.width+'px','height':boite.dimension.height+'px'})
+                                                               .update(boite.contenu)
+                                                               .insert(new Element('div').addClassName('recursion').update(boite.recursion));
 	$('body').insert(elboite);
 }
 
