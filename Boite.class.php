@@ -45,9 +45,12 @@ class Boite extends ComplexObject {
                         switch($trait->name) {
                             case 'liaison': case 'liaison_trait_enfants': // Trait de liaison /  Trait entre la liaison et le trait des enfants
                                 $id_conjoint=$this->id === $mariage->conjoint1 ? $mariage->conjoint2 : $mariage->conjoint1;
+                                $trait_inverse=clone $trait;
+                                $trait_inverse->id=$trait->id2;$trait_inverse->id2;
+                                $traits_deplaces=Boite::$liste_traits_deplaces;
                                 foreach (Boite::$liste_traits_deplaces as $trait_deplace)
                                     if ($trait_deplace->equals($trait))
-                                        break;
+                                        break 2;
                                 $trait->pos_debut->incr($coord->x, $coord->y);
                                 Boite::$liste_traits_deplaces[]=$trait;
                                 $trait->update();
@@ -86,6 +89,9 @@ class Boite extends ComplexObject {
                             $trait->update();
                             $traits_deplaces=Boite::$liste_traits_deplaces;
                             $trait_enfants_parents=ComplexObjectToGet('Trait', array('id'=>$trait->id,'id2'=>$trait->id2, 'name'=>'trait_enfants'));
+                            if (is_null($trait_enfants_parents))
+                                $trait_enfants_parents=ComplexObjectToGet('Trait', array('id'=>$trait->id2,'id2'=>$trait->id, 'name'=>'trait_enfants'));
+
                             foreach (Boite::$liste_traits_deplaces as $i=>$trait_deplace) {
                                 if ($trait_deplace->equals($trait_enfants_parents)) {
                                     $index=$i;

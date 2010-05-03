@@ -24,9 +24,12 @@ class ComplexObject {
                     .'WHERE id_session='.Personne::$id_session;
             foreach($filtres as $champ=>$valeur) {
                 if (is_int($champ))
-                    $requete.=' AND '.$valeur;
+                    $requete.=' AND ('.$valeur;
                 else
-                    $requete.=' AND '.$champ.' LIKE \''.$valeur.'\'';
+                    $requete.=' AND ('.$champ.' LIKE \''.$valeur.'\'';
+                if (is_null($valeur))
+                    $requete.=' OR '.$champ.' IS NULL';
+                $requete.=')';
             }
             $requete.=') AS existe';
             $resultat_requete=Requete::query($requete) or die(mysql_error());
@@ -82,6 +85,9 @@ class ComplexObject {
 		}
 		$requete.=' WHERE id_session='.Personne::$id_session;
 		foreach(static::$identifiants as $identifiant) {
+                    if ($valeurs[$identifiant]==='NULL')
+                        $requete.=' AND '.$identifiant.' IS NULL';
+                    else
 			$requete.=' AND '.$identifiant.'='.$valeurs[$identifiant];
 		}
 		
