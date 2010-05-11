@@ -77,19 +77,20 @@ class Trait extends ComplexObject{
 		return $concernes;
 	}
 	
-	function getTraitsConcernesPar($id) {
-		$requete='SELECT '.implode(', ',$this->getBDFields()).' '
-                        .'FROM traits '
-                        .'WHERE id_session='.Personne::$id_session.' '
-                        .'AND (id LIKE \''.$id.'\''
-                        .' OR id2 LIKE \''.$id.'\''
-                        .' OR id3 LIKE \''.$id.'\')';
-		$resultat_requete=Requete::query($requete);
-		$traits=array();
-		while ($infos=mysql_fetch_array($resultat_requete)) {
-			$traits[]=new Trait($infos);
-		} 
-		return $traits;
+	static function getTraitsConcernesPar($id) {
+            $trait_fictif=new Trait();
+            $requete='SELECT '.implode(', ',$trait_fictif->getBDFields()).' '
+                    .'FROM traits '
+                    .'WHERE id_session='.Personne::$id_session.' '
+                    .'AND (id LIKE \''.$id.'\''
+                    .' OR id2 LIKE \''.$id.'\''
+                    .' OR id3 LIKE \''.$id.'\')';
+            $resultat_requete=Requete::query($requete);
+            $traits=array();
+            while ($infos=mysql_fetch_array($resultat_requete)) {
+                    $traits[]=new Trait($infos);
+            }
+            return $traits;
 	}
 	
 	function getTraitsCouple($id, $id2, $filtre=array()) {

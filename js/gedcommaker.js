@@ -25,6 +25,9 @@ function routine() {
 function loadPersonne (id, id_caller) {
 	ajax_is_loading=true;
 	id_g=id;
+
+        if ($('boite_'+id))
+            $('boite_'+id).insert(new Element('img',{'src':'images/ajax-loading.gif'}));
 	new Ajax.Request('Personne.class.php', {
 		parameters:script+'=true&site_source='+site_source+'&id_session='+id_session_g+'&serveur='+serveur_g+'&pseudo='+pseudo_g+'&autres_args='+id.replace('%',';pcnt;')+'&caller='+id_caller.replace('%',';pcnt;'),
 		asynchronous: true,
@@ -70,20 +73,18 @@ function loadPersonne (id, id_caller) {
 				    }
 			    }
 				if (resultat.traits) {
-					for (var i=0;i<resultat.traits.creation.length;i++)
-						afficher_trait(resultat.traits.creation[i]);
-					for (var i=0;i<resultat.traits.modif.length;i++) {
-						$(trait_to_id(resultat.traits.modif[i])).remove();
-						afficher_trait(resultat.traits.modif[i]);
-					}
+                                    for (var i=0;i<resultat.traits.length;i++) {
+                                        if ($(trait_to_id(resultat.traits[i])))
+                                            $(trait_to_id(resultat.traits[i])).remove();
+                                        afficher_trait(resultat.traits[i]);
+                                    }
 				}
 				if (resultat.boites) {
-					for (var i=0;i<resultat.boites.creation.length;i++)
-						afficher_boite(resultat.boites.creation[i]);
-					for (var i=0;i<resultat.boites.modif.length;i++) {
-						$('boite_'+resultat.boites.modif[i].id).remove();
-						afficher_boite(resultat.boites.modif[i]);
-					}
+                                    for (var i=0;i<resultat.boites.length;i++) {
+                                        if ($('boite_'+resultat.boites[i].id))
+                                            $('boite_'+resultat.boites[i].id).remove();
+                                        afficher_boite(resultat.boites[i]);
+                                    }
 				}
 				//if (decalage_top != resultat.decalage.top || decalage_left != resultat.decalage.left) {
 					$$('.personne, .trait').each (function(el) { 
@@ -113,8 +114,6 @@ function loadPersonne (id, id_caller) {
 
 function trait_to_id(trait) {
 	var id=trait.id+'~'+trait.id2;
-        if (!$(id))
-            id=trait.id2+'~'+trait.id;
 	if (trait.id3)
 		id+='~'+trait.id3;
         id+='~~'+trait.name;

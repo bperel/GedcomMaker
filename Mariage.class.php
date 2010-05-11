@@ -17,25 +17,38 @@ class Mariage extends ComplexObject{
                     $o=array($o);
                 foreach($o as $i=>$objet) {
                     $o[$i]->enfants=array();
-                    $enfants_mariage= ComplexObjectToGet('EnfantMariage',array('id_mariage'=>$o[$i]->id),'all');
+                    $enfants_mariage = ComplexObjectToGet('EnfantMariage',array('id_mariage'=>$o[$i]->id),'all');
                     if (!is_null($enfants_mariage)) {
-                        foreach($enfants_mariage as $j=>$enfant_mariage) {
-                            $o[$i]->enfants[$j]=$enfant_mariage->id_enfant;
+                        if (!is_null($enfants_mariage)) {
+                            foreach($enfants_mariage as $j=>$enfant_mariage) {
+                                $o[$i]->enfants[$enfant_mariage->numero]=$enfant_mariage->id_enfant;
+                            }
                         }
                     }
                 }
             }
             return $str_all==='all'?$o : $o[0];
 	}
-	
+
+        function addOrUpdate() {
+            if ($this->exists(array('conjoint1'=>$this->conjoint1,'conjoint2'=>$this->conjoint2))) {
+                $this->update();
+            }
+            else {
+                $this->add();
+            }
+	}
+
 	function add() {
             $this->id=$this->getNext('id');
-        $this->addEnfants($this->enfants);
+            $this->addEnfants($this->enfants);
             parent::add();
 	}
 	
 	function update() {
-		parent::update();
+            parent::update();
+            $this->id=ComplexObjectFieldToGet('Mariage', 'id', array('conjoint1'=>$this->conjoint1,'conjoint2'=>$this->conjoint2));
+            $this->updateEnfants($this->enfants);
 	}
 
         function exists($filtres=array()) {
@@ -70,9 +83,16 @@ class Mariage extends ComplexObject{
         }
 
 	function addEnfants(array $enfants) {
-            foreach($enfants as $id_enfant) {
-                $enfantmariage=new EnfantMariage(array('id_enfant'=>$id_enfant,'id_mariage'=>$this->id));
+            foreach($enfants as $i=>$id_enfant) {
+                $enfantmariage=new EnfantMariage(array('id_enfant'=>$id_enfant,'id_mariage'=>$this->id, 'numero'=>$i));
                 $enfantmariage->add();
+            }
+	}
+
+        function updateEnfants(array $enfants) {
+            foreach($enfants as $i=>$id_enfant) {
+                $enfantmariage=new EnfantMariage(array('id_enfant'=>$id_enfant,'id_mariage'=>$this->id, 'numero'=>$i));
+                $enfantmariage->addOrUpdate();
             }
 	}
 	
@@ -110,10 +130,23 @@ class Mariage extends ComplexObject{
 
         function getNumeroEnfantFratrie ($id_enfant) {
             $enfants_mariage=ComplexObjectToGet('EnfantMariage', array('id_mariage'=>$this->id),'all');
-            foreach ($enfants_mariage as $num_enfant=>$enfant_mariage) {
+            foreach ($enfants_mariage as $enfant_mariage) {
                 if ($id_enfant==$enfant_mariage->id_enfant)
-                    return $num_enfant;
+                    return $enfant_mariage->numero;
             }
             return null;
 	}
+
+        function getPremierDernierEnfant() {
+            require_once('Boite.class.php');
+            foreach($this->enfants as $id_enfant) {
+                $boite_enfant=ComplexObjectToGet('Boite',array('id'=>$id_enfant));
+                $boites_enfants[]=$boite_enfant;
+            }
+            trier($boites_enfants,'pos->x');
+            $boite_premier_enfant=$boites_enfants[0];
+            $boite_dernier_enfant=$boites_enfants[count($boites_enfants)-1];
+
+            return array($boite_premier_enfant,$boite_dernier_enfant);
+        }
 }?>

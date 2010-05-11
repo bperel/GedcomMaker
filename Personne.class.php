@@ -24,6 +24,7 @@ mysql_connect($server, $user, $password);
 mysql_select_db($database);
 date_default_timezone_set('UTC');
 include_once('ComplexObject.class.php');
+include_once('ObjectArray.class.php');
 include_once('Util/Requete.class.php');
 
 include_once('Coord.class.php');
@@ -48,7 +49,7 @@ define('HAUTEUR_PERSONNE',100);
 define('HAUTEUR_GENERATION',120);
 define('ESPACEMENT_MARIAGES',4);
 define('ESPACEMENT_ENFANT',40);
-define('ESPACEMENT_INCONNUS',60);
+define('ESPACEMENT_INCONNUS',80);
 define('ESPACEMENT_EPOUX',50);
 define('LARGEUR_BORDURE',1);
 
@@ -137,20 +138,27 @@ class Personne extends ComplexObject{
 	}
 
         function get($filtres, $str_all=false) {
-		$this->boite=ComplexObjectToGet('Boite', array('id'=>$this->id));
-                $mariages1=ComplexObjectToGet('Mariage',array('conjoint1'=>$this->id));
-                $mariages2=ComplexObjectToGet('Mariage',array('conjoint2'=>$this->id));
-                if (is_null($mariages1)) {
-                    if (is_null($mariages2))
-			$this->mariages=array();
+                $o=parent::get($filtres,$str_all);
+                if (is_null($o))
+                    return null;
+                if (!is_array($o))
+                    $o=array($o);
+                foreach($o as &$objet) {
+                    $objet->boite=ComplexObjectToGet('Boite', array('id'=>$objet->id));
+                    $mariages1=ComplexObjectToGet('Mariage',array('conjoint1'=>$objet->id));
+                    $mariages2=ComplexObjectToGet('Mariage',array('conjoint2'=>$objet->id));
+                    if (is_null($mariages1)) {
+                        if (is_null($mariages2))
+                            $objet->mariages=array();
+                        else
+                            $objet->mariages=$mariages2;
+                    }
+                    elseif (is_null($mariages2))
+                        $objet->mariages=$mariages1;
                     else
-                        $this->mariages=$mariages2;
+                        $objet->mariages=array_merge($mariages1, $mariages2);
                 }
-                elseif (is_null($mariages2))
-                    $this->mariages=$mariages1;
-                else
-                    $this->mariages=array_merge($mariages1, $mariages2);
-		return parent::get($filtres,$str_all);
+		return count($o)==1 ? $o[0] : $o;
 	}
 
         function add() {
@@ -165,8 +173,7 @@ class Personne extends ComplexObject{
         }
         
 	function ComplexMyselfToGet() {
-            $p=new Personne($this->id);
-            $p=$p->get(array('id'=>$this->id));
+            $p=ComplexObjectToGet('Personne',array('id'=>$this->id));
             if (is_null($p))
                 return null;
             foreach($p as $attribut=>$valeur)
@@ -178,13 +185,25 @@ class Personne extends ComplexObject{
                 $this->etat=$etat;
         }
 
+        function getEspacementAvec ($id_autre) {
+            $id_mariage1=ComplexObjectFieldToGet('EnfantMariage', 'id_mariage', array('id_enfant'=>$this->id), true);
+            $id_mariage2=ComplexObjectFieldToGet('EnfantMariage', 'id_mariage', array('id_enfant'=>$id_autre), true);
+            if (is_null($id_mariage1) || is_null($id_mariage2))
+                return ESPACEMENT_INCONNUS;
+            if ($id_mariage1 === $id_mariage2)
+                return ESPACEMENT_ENFANT;
+            if (ComplexObjectExists('Mariage',array('conjoint1'=>$this->id,'conjoint2'=>$id_autre)))
+                return ESPACEMENT_EPOUX;
+            return ESPACEMENT_INCONNUS;
+        }
+
 	function analyser($ComplexMyselfToGet=false) {
 		if (LIMITE_PROFONDEUR_SNIFFER!=0 && count(debug_backtrace())>LIMITE_PROFONDEUR_SNIFFER) {
 			echo '[TMR]<br />';
 			return;
 		}
-		Personne::$retour['boites']=array('creation'=>array(),'modif'=>array());
-		Personne::$retour['traits']=array('creation'=>array(),'modif'=>array());
+		Personne::$retour['boites']=array();
+		Personne::$retour['traits']=array();
 
 		if (ComplexObjectExists('Personne', array('id'=>$this->id))) {
                     if (ComplexObjectFieldToGet('Personne', 'etat', array('id'=>$this->id)) == 'make_tree') {
@@ -221,6 +240,8 @@ class Personne extends ComplexObject{
 		}
                 
                 new Personne::$site_source($page, $this);
+                $boite_precedente=null;
+                $boite_suivante=null;
 		
 		if (!(ComplexObjectExists('Boite',array('id'=>$this->id)))) {
                     $action_boite='creation';
@@ -231,6 +252,9 @@ class Personne extends ComplexObject{
 		else {
                     $action_boite='modif';
                     $this->genererBoite(ComplexObjectToGet('Boite',array('id'=>$this->id))->pos);
+
+                    $personne=clone $this;
+                    list($boite_precedente, $boite_suivante)=$this->boite->getBoitesPrecedenteSuivante();
 		}
 		$this->boite->addOrUpdate();
                 if (count($this->mariages)>0) {
@@ -259,7 +283,8 @@ class Personne extends ComplexObject{
                             $action_conjoints='creation';
                             if (($this->sexe==='H' ||$conjoint->sexe==='F') && $this->boite->pos->x > $pos_conjoint->x)
                                 list($this->boite->pos,$pos_conjoint)=Coord::echanger($this->boite->pos, $pos_conjoint);
-                            Personne::$retour['boites'][$action_conjoints][]=$conjoint->dessiner($pos_conjoint, $this, true);
+                            
+                            $conjoint->dessiner($pos_conjoint, array($this->boite))->mettre_dans_retour();
                         }
 
                         $homme=$this->sexe=='H' ? $this : $conjoint;
@@ -273,31 +298,54 @@ class Personne extends ComplexObject{
                         $mariage->addOrUpdate();
                         $mariage=ComplexObjectToGet('Mariage',array('conjoint1'=>$id_homme,'conjoint2'=>$id_femme)); // Pour récupérer l'ID
 
-                        Personne::ajouter_a_retour('trait', $action_conjoints, $this->lier_avec_conjoint($conjoint,$i, $mariage->date_mariage));
+                        $this->lier_avec_conjoint($conjoint,$i, $mariage->date_mariage)->mettre_dans_retour();
                         if (count($mariage->enfants) > 0) {
-                            Personne::ajouter_a_retour('trait', $action_conjoints, $this->lier_avec_trait_enfants($conjoint,$i,$mariage,$fin_enfants_precedents));
+                            $enfants_deja_dessines=ComplexObjectFieldToGet('Personne', 'boite', array('pere'=>$homme->id,'mere'=>$femme->id),'all');
+                            if (is_null($enfants_deja_dessines))
+                                $enfants_deja_dessines=array();
+                            elseif (!is_array($enfants_deja_dessines))
+                                $enfants_deja_dessines=array($enfants_deja_dessines);
+                            $ids_enfants_deja_dessines=array();
+                            foreach($mariage->enfants as $j=>$id_enfant)
+                                foreach($enfants_deja_dessines as $enfant_deja_dessine)
+                                    if ($enfant_deja_dessine->id === $id_enfant)
+                                        $ids_enfants_deja_dessines[$j]=$id_enfant;
+                            $this->lier_avec_trait_enfants($conjoint,$i,$mariage,$fin_enfants_precedents)->mettre_dans_retour();
                             $liaison=ComplexObjectToGet('Liaison', array('id'=>$id_homme,'id2'=>$id_femme));
                             $largeur_enfants=LARGEUR_PERSONNE*count($mariage->enfants) + ESPACEMENT_ENFANT*(count($mariage->enfants)-1);
                             Personne::$niveau_courant++;
                             foreach($mariage->enfants as $j=>$id_enfant) {
-                                $enfant=new Personne($id_enfant,'I','?','?','',$id_enfant,'...',null,null);
+                                $enfant=new Personne($id_enfant,'I','?','?','',$id_enfant,'...',$homme->id,$femme->id);
                                 $enfant->setEtat('En cours');
-                                $pos_enfant=new Coord(array('x'=>($fin_enfants_precedents>0?($fin_enfants_precedents):($liaison->pos->x-$largeur_enfants/2)) + $j*(LARGEUR_PERSONNE+ESPACEMENT_ENFANT),
-                                                            'y'=>$this->boite->pos->y+HAUTEUR_PERSONNE+HAUTEUR_GENERATION));
-                                $enfant_existe_en_bd=ComplexObjectExists('Personne',array('id'=>$enfant->id));
-                                $action_enfant=$enfant_existe_en_bd?'modif':'creation';
-                                Personne::ajouter_a_retour('boite', $action_enfant, $enfant->dessiner($pos_enfant, $this, false));
-                                Personne::ajouter_a_retour('trait', $action_enfant, $this->lier_avec_enfant($conjoint,$i,$enfant,$conjoint->boite->pos->x));
-                                if ($action_enfant=='creation')
+                                $pos_enfant=new Coord(array('x'=>null,'y'=>$this->boite->pos->y+HAUTEUR_PERSONNE+HAUTEUR_GENERATION));
+                                $sens='droite';
+                                if (count($ids_enfants_deja_dessines)==0) {
+                                    $pos_enfant->x=$fin_enfants_precedents>0?($fin_enfants_precedents):($liaison->pos->x-$largeur_enfants/2 + $j*(LARGEUR_PERSONNE+ESPACEMENT_ENFANT));
+                                }
+                                else {
+                                    $k=0;
+                                    while (!array_key_exists($k,$ids_enfants_deja_dessines))
+                                        $k++;
+                                    if ($k > $j) {
+                                        $pos_enfant->x=ComplexObjectFieldToGet('Boite', 'pos->x', array('id'=>$ids_enfants_deja_dessines[$k])) - ($k-$j)*(LARGEUR_PERSONNE+ESPACEMENT_ENFANT);
+                                        $sens='gauche';
+                                    }
+                                }
+                                $action_enfant=in_array($id_enfant,$ids_enfants_deja_dessines) ? 'modif':'creation';
+                                if ($action_enfant=='creation') {
+                                    $enfant->dessiner($pos_enfant)->mettre_dans_retour();
+                                    $this->lier_avec_enfant($conjoint,$i,$enfant,$conjoint->boite->pos->x)->mettre_dans_retour();
                                     $enfant->addOrUpdate(); // Puis on ajoute l'enfant en tant que Personne...
+                                }
                                 Personne::$retour['mariages'][$i]['enfants'][$j]=array('id'=>$enfant->id,'action'=>$action_enfant=='creation'?'todo':'already_done');
                                 if (!(ComplexObjectExists('EnfantMariage',array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id)))) {
-                                    $o_enfant=new EnfantMariage(array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id));
+                                    $o_enfant=new EnfantMariage(array('id_enfant'=>$enfant->id, 'id_mariage'=>$mariage->id, 'numero'=>$j));
                                     $o_enfant->add(); // ... Et l'enfant en tant que relation avec ses parents
                                 }
                             }
                             Personne::$niveau_courant--;
-                            Personne::ajouter_a_retour('trait', $action_conjoints, $this->lier_avec_enfants($conjoint,$i,$mariage,$fin_enfants_precedents));
+                            if (count($mariage->enfants)>1)
+                                $this->lier_avec_enfants($conjoint,$i,$mariage,$fin_enfants_precedents)->mettre_dans_retour();
                             $mariage->update();
                         }
 
@@ -312,8 +360,8 @@ class Personne extends ComplexObject{
                             array_push(Personne::$liste_familles,$mariage);
                         */
                         if (count($mariage->enfants)>0) {
-                            $id_dernier_enfant=$this->mariages[$i]->enfants[count($this->mariages[$i]->enfants)-1];
-                            $boite_dernier_enfant=ComplexObjectToGet('boite',array('id'=>$id_dernier_enfant));
+                            $id_dernier_enfant=$mariage->enfants[count($mariage->enfants)-1];
+                            $boite_dernier_enfant=ComplexObjectToGet('Boite',array('id'=>$id_dernier_enfant));
                             $fin_enfants_precedents= $boite_dernier_enfant->pos->x + LARGEUR_PERSONNE+ESPACEMENT_INCONNUS;
                         }
                         $conjoint->addOrUpdate();
@@ -337,19 +385,14 @@ class Personne extends ComplexObject{
                                     $nb_enfants=count($enfants_mariage);
                                     $numero_enfant_fratrie=$mariage->getNumeroEnfantFratrie($enfants_mariage,$this->id);
                                     $largeur_enfants=$nb_enfants*LARGEUR_PERSONNE+($nb_enfants-1)*ESPACEMENT_ENFANT;
-                                    $coords_liaison
-                                            =new Coord(array('x'=>$this->boite->pos->x + $largeur_enfants/2 - $numero_enfant_fratrie*(LARGEUR_PERSONNE+ESPACEMENT_ENFANT),
-                                                             'y'=>$this->boite->pos->y-HAUTEUR_GENERATION-HAUTEUR_PERSONNE/2));
-                                    $boite_parent->pos
-                                            =new Coord(array('x'=>$coords_liaison->x-ESPACEMENT_EPOUX/2-LARGEUR_PERSONNE,
-                                                             'y'=>$coords_liaison->y-HAUTEUR_PERSONNE/2));
-                                    $boite_parent->update();
+                                    $coords_liaison=ComplexObjectFieldToGet('Liaison', 'pos',array('id'=>$this->pere,'id2'=>$this->mere));
+
                                     //Vérifier que ces traits ne sont pas déjà dessinés
                                     if ($parent=='pere') {
                                         if (!(ComplexObjectExists('Trait',array('id'=>$this->pere, 'id2'=>$this->mere, 'id3'=>$this->id)))) {
                                             $liaison=new Liaison(array('id'=>$this->pere, 'id2'=>$this->mere,'pos'=>$coords_liaison));
                                             $liaison->update();
-                                            Personne::ajouter_a_retour('trait', 'modif', $this->lier_avec_pere($pere,$liaison,$enfants_mariage,$numero_mariage));
+                                            $this->lier_avec_pere($pere,$liaison,$enfants_mariage,$numero_mariage,false)->mettre_dans_retour();
                                         }
                                     }
                                 }
@@ -364,41 +407,44 @@ class Personne extends ComplexObject{
                                 $o_parent=new Personne($this->$parent,'I','?','?','',$this->$parent,'...',null,null);
                                 $o_parent->setEtat('En cours');
                                 $o_parent->sexe=($parent=='pere')?'H':'F';
-                                $pos_boite=new Coord(array('x'=>$coord_liaison_parents->x+($parent=='pere'?(-1*(ESPACEMENT_EPOUX/2+LARGEUR_PERSONNE)):ESPACEMENT_EPOUX/2),
-                                                           'y'=>$coord_liaison_parents->y-HAUTEUR_PERSONNE/2));
-                                Personne::ajouter_a_retour('boite', 'creation', $o_parent->dessiner($pos_boite, $this, false));
-
+                                if ($parent=='pere')
+                                    $pos_boite=new Coord(array('x'=>$coord_liaison_parents->x+($parent=='pere'?(-1*(ESPACEMENT_EPOUX/2+LARGEUR_PERSONNE)):ESPACEMENT_EPOUX/2),
+                                                            'y'=>$coord_liaison_parents->y-HAUTEUR_PERSONNE/2));
+                                else
+                                    $pos_boite=ComplexObjectFieldToGet('Boite','pos',array('id'=>$this->pere))->incr_x(LARGEUR_PERSONNE+ESPACEMENT_EPOUX);
+                                
+                                $o_parent->dessiner($pos_boite)->mettre_dans_retour();
+                                 
                                 $o_parent->addOrUpdate();
                                 $mariage_parents=new Mariage(array('id'=>'','conjoint1'=>$this->pere,'conjoint2'=>$this->mere,'date_mariage'=>'','lieu_mariage'=>''));
                                 $mariage_parents->enfants[0]=$this->id;
                                 $o_parent->mariages[0]=$mariage_parents;
                                 if ($parent=='pere') {
+                                    $coord_liaison_parents
+                                        =new Coord(array('x'=>$pos_boite->x + LARGEUR_PERSONNE + ESPACEMENT_EPOUX/2,
+                                                         'y'=>$pos_boite->y + HAUTEUR_PERSONNE/2));
                                     $liaison_parents=new Liaison(array('id'=>$this->pere,'id2'=>$this->mere,'pos'=>$coord_liaison_parents));
-                                    Personne::ajouter_a_retour('trait', 'creation', $this->lier_avec_pere($o_parent,$liaison_parents,array($this->id),0));
+                                    $this->lier_avec_pere($o_parent,$liaison_parents,array($this->id),0,true)->mettre_dans_retour();
                                 }
                                 else {
-                                    $mariage_parents->add();
-                                    $mariage_parents=ComplexObjectToGet('Mariage',array('conjoint1'=>$this->pere,'conjoint2'=>$this->mere));
-
                                     $pere=new Personne($this->pere,'H','?','?','',$pere->id,'...',null,null);
                                     $pere->boite=ComplexObjectToGet('Boite',array('id'=>$this->pere));
                                     $pere->setEtat('En cours');
-                                    Personne::ajouter_a_retour('trait', 'creation', $o_parent->lier_avec_conjoint($pere,0, ''));
+                                    $o_parent->lier_avec_conjoint($pere,0, '')->mettre_dans_retour();
                                 }
                             }
                         }
                     }
                 }
-                Personne::ajouter_a_retour('boite',$action_boite,$this->boite);
-		Personne::$niveau_courant++;
+                Personne::$niveau_courant++;
 
 		$this->etat='make_tree';
 		$this->addOrUpdate();
 		Personne::corriger_cadrage(0,0);
+                $retour=Personne::$retour;
 		return Personne::$retour;
-		
 	}
-	
+
 	function getDifferenceNiveauAvec($id_personne) {
 		$requete_pere_mere='SELECT pere, mere FROM personnes WHERE id LIKE \''.$id_personne.'\' AND id_session='.Personne::$id_session;
 		$resultat_pere_mere=Requete::query($requete_pere_mere);
@@ -559,9 +605,9 @@ class Personne extends ComplexObject{
 		}
 	}
 	
-	function dessiner($pos_boite=null, Personne $personne_depart=null, $est_conjoint=false) {
-            if (!is_null($personne_depart))
-                $boite_personne_depart=$personne_depart->boite;
+	function dessiner($pos_boite=null, $autres_boites=array()) {
+            //if (!is_null($personne_depart))
+            //    $boite_personne_depart=$personne_depart->boite;
             debug('<br />');
             debug('Création de '.$this->prenom.' '.$this->nom.'<br />');
             $marge_gauche= ComplexObjectToGet('Marge',array('niveau'=>Personne::$niveau_courant));
@@ -582,70 +628,12 @@ class Personne extends ComplexObject{
             }
             else
                     $coord_boite=$pos_boite;
-            if (isset($personne_depart)) {
-                $deplacement_a_faire=0;
-                $boite_a_cet_endroit=true;
-                $deplacement_x=0;
-                $coords=array($coord_boite);
-                $ids_a_exclure=array();
-                if (!is_null($boite_personne_depart)) {
-                    if (!ComplexObjectExists('Mariage',array('conjoint1'=>$boite_personne_depart->id)))
-                        $coords[]=$boite_personne_depart->pos;
-                    $ids_a_exclure[]=$boite_personne_depart->id;
-                }
-                $deplacement_a_faire=Boite::getDeplacementAFaire($coords,$ids_a_exclure, $est_conjoint);
-                foreach($coords as &$coord)
-                    $coord->x+=$deplacement_a_faire;
-
-                if ($est_conjoint) { // Mariage => décaler les autres boites
-                    $largeur_a_deplacer=abs($coord_boite->x - $boite_personne_depart->pos->x) + LARGEUR_PERSONNE + ESPACEMENT_INCONNUS;
-                    $mariage_parents=ComplexObjectToGet('Mariage', array('conjoint1'=>$personne_depart->pere, 'conjoint2'=>$personne_depart->mere));
-                    if (!is_null($mariage_parents)) {
-                        $personnes_fratrie=ComplexObjectToGet('EnfantMariage', array('id_mariage'=>$mariage_parents->id),'all');
-                        $numero_enfant_courant=$mariage_parents->getNumeroEnfantFratrie($boite_personne_depart->id);
-                        if ($numero_enfant_courant < count($mariage_parents->enfants) && !is_null($personnes_fratrie)) {
-                            $boites_fratrie=array();
-                            foreach($personnes_fratrie as $i=>$enfant_mariage) {
-                                if ($i>$numero_enfant_courant) {
-                                    $boites_fratrie[]=ComplexObjectToGet('Boite',array('id'=>$enfant_mariage->id_enfant));
-                                }
-                            }
-                            Boite::deplacerBoites($boites_fratrie, new Coord(array('x'=>$largeur_a_deplacer,'y'=>0)));
-                            Personne::ajouter_a_retour('boite', 'modif', Boite::$liste_boites_deplacees);
-                            Personne::ajouter_a_retour('trait', 'modif', Boite::$liste_traits_deplaces);
-                        }
-                    }
-                }
-                else { // Sinon, c'est la nouvelle boite qui doit être déplacée
-                    
-                }
-                if ((!is_null($boite_personne_depart)) && $deplacement_a_faire>0) { // Mettre à jour les traits existants de la boite déplacée
-                    $boite_personne_depart->update();
-                    $trait_vers_trait_enfants=ComplexObjectToGet('Trait', array('id3'=>$boite_personne_depart->id,'type'=>'ligne_enfants__enfant'));
-                    if (!is_null($trait_vers_trait_enfants)) {
-                        $trait_vers_trait_enfants->pos_debut->x+=$deplacement_a_faire;
-                        Personne::ajouter_a_retour('trait', 'modif', $trait_vers_trait_enfants);
-                        $trait_vers_trait_enfants->update();
-                        $trait_enfants=ComplexObjectToGet('Trait', array('id'=>$trait_vers_trait_enfants->id,'id2'=>$trait_vers_trait_enfants->id2,
-                                                                         'name'=>'trait_enfants'));
-                        if (!is_null($trait_enfants)) {
-                            $trait_enfants_modifie=false;
-                            if ($trait_enfants->pos_debut->x > $trait_vers_trait_enfants->pos_debut->x) {
-                                $trait_enfants->pos_debut->x=$trait_vers_trait_enfants->pos_debut->x;
-                                $trait_enfants_modifie=true;
-                            }
-                            if ($trait_enfants->pos_debut->x + $trait_enfants->width < $trait_vers_trait_enfants->pos_debut->x) {
-                                $trait_enfants->width=$trait_vers_trait_enfants->pos_debut->x - $trait_enfants->pos_debut->x - LARGEUR_BORDURE*4;
-                                $trait_enfants_modifie=true;
-                            }
-                            if ($trait_enfants_modifie) {
-                                Personne::ajouter_a_retour('trait', 'modif', $trait_enfants);
-                                $trait_enfants->update();
-                            }
-                        }
-                    }
-                }
-            }
+            $this->boite=new Boite();
+            $this->boite->pos=$coord_boite;
+            $this->boite->id=$this->id;
+            $boites=array_merge($autres_boites, array($this->boite));
+            Boite::deplacerBoitesInit($boites);
+            
             $this->genererBoite($coord_boite);
             if ($marge_gauche->marge < $this->boite->pos->x+LARGEUR_PERSONNE) {
                     $marge_gauche->marge=$this->boite->pos->x+LARGEUR_PERSONNE;
@@ -659,6 +647,7 @@ class Personne extends ComplexObject{
                                               'recursion'=>count(debug_backtrace()),
                                               'contenu'=>$this->prenom.' '.strtoupper($this->nom).'<br /><span style="font-size:10px">'.$this->naissance.' - '.$this->mort.'</span>',
                                               'pos'=>$pos,'dimension'=>new Dimension(array('width'=>LARGEUR_PERSONNE,'height'=>HAUTEUR_PERSONNE))));
+                $this->boite->mettre_dans_retour();
 	}
         
 	static function calculerLiaison($homme, $femme,$num_mariage,$fin_enfants_precedents) {
@@ -693,13 +682,12 @@ class Personne extends ComplexObject{
                                        'type'=>'conjoints')
                                     );
 		$trait->addOrUpdate();
-		return array($trait);
+		return $trait;
 	}
 	
 	function lier_avec_trait_enfants($conjoint,$num_mariage,$fin_enfants_precedents) {
             $id_pere=$this->sexe=='H'?$this->id:$conjoint->id;
             $id_mere=$this->sexe!='H'?$this->id:$conjoint->id;
-            $traits=array();
             $liaison=ComplexObjectToGet('Liaison', array('id'=>$id_pere,'id2'=>$id_mere));
             $pos_trait_enfants_y=$liaison->pos->y + HAUTEUR_PERSONNE/2+HAUTEUR_GENERATION/2 - $num_mariage*ESPACEMENT_MARIAGES;
 
@@ -713,21 +701,23 @@ class Personne extends ComplexObject{
                                    'type'=>'conjoints')
                                 );
             $trait->addOrUpdate();
-            $traits[]=$trait;
 
-            return $traits;
+            return $trait;
 	}
 
         function lier_avec_enfants($conjoint,$num_mariage,$mariage,$fin_enfants_precedents) {
-
 		$id_pere=$this->sexe=='H'?$this->id:$conjoint->id;
 		$id_mere=$this->sexe!='H'?$this->id:$conjoint->id;
                 $liaison=ComplexObjectToGet('Liaison', array('id'=>$id_pere,'id2'=>$id_mere));
-                $pos_premier_enfant=ComplexObjectFieldToGet('Boite','pos',array('id'=>$mariage->enfants[0]));
-                if (count($mariage->enfants)==1)
-                    $pos_dernier_enfant=new Coord(array('x'=>$pos_premier_enfant->x+1,$pos_premier_enfant->y));
-		else
-                    $pos_dernier_enfant=ComplexObjectFieldToGet('Boite','pos',array('id'=>$mariage->enfants[count($mariage->enfants)-1]));
+                $boites_enfants=ComplexObjectFieldToGet('Personne','boite',array('pere'=>$mariage->conjoint1, 'mere'=>$mariage->conjoint2));
+                if (is_array($boites_enfants))
+                    trier($boites_enfants,'pos->x');
+                else
+                    $boites_enfants=array($boites_enfants);
+                $pos_premier_enfant=$boites_enfants[0]->pos;
+                $pos_dernier_enfant=$boites_enfants[count($boites_enfants)-1]->pos;
+                if ($pos_dernier_enfant->x < $liaison->pos->x)
+                    $pos_dernier_enfant->x=$liaison->pos->x;
 
 		$pos_trait_enfants=new Coord(array('x'=>$pos_premier_enfant->x + LARGEUR_PERSONNE/2,
                                                    'y'=>$liaison->pos->y + HAUTEUR_PERSONNE/2+HAUTEUR_GENERATION/2 - $num_mariage*ESPACEMENT_MARIAGES));
@@ -739,9 +729,15 @@ class Personne extends ComplexObject{
                                       'width'=>$pos_dernier_enfant->x - $pos_premier_enfant->x - 4*LARGEUR_BORDURE,
                                       'name'=>'trait_enfants',
                                       'type'=>'conjoints'));
-		$trait->addOrUpdate();
-                $traits[]=$trait;
-		return $traits;
+                if (ComplexObjectExists('Boite', array('id'=>$id_pere)) && ComplexObjectExists('Boite', array('id'=>$id_mere))) {
+                    if (ComplexObjectExists('Trait', array('id'=>$id_pere,'id2'=>$id_mere,'name'=>'trait_enfants'))) {
+                        $trait->update();
+                    }
+                }
+                else {
+                    $trait->addOrUpdate();
+                }
+		return $trait;
         }
 
 	function lier_avec_enfant($conjoint,$num_mariage,$enfant,$fin_enfants_precedents) { 
@@ -766,54 +762,55 @@ class Personne extends ComplexObject{
 							   'name'=>'enfant type2',
 							   'type'=>'ligne_enfants__enfant')
 							);
-		$trait->addOrUpdate();$traits[]=$trait;
-		return array($trait);
+		$trait->addOrUpdate();
+		return $trait;
 	}
 	
-	function lier_avec_pere($pere, $liaison,$ids_enfants,$num_mariage) {
+	function lier_avec_pere($pere, $liaison,$ids_enfants,$num_mariage, $est_nouvelle) {
 		$traits=array();
+                $liaison->update();
 		debug('Liaison de '.$this->id.' avec son père '.$this->pere.'<br />');
-		$debut_trait_enfants=new Coord(array('x'=>ComplexObjectFieldToGet('Boite','pos->x',array('id'=>$ids_enfants[0])),
-                                                     'y'=>$liaison->pos->y+HAUTEUR_PERSONNE/2+HAUTEUR_GENERATION/2));
-		
-		$pos_trait_enfant=new Coord(array('x'=>$this->boite->pos->x + LARGEUR_PERSONNE/2,
-										  'y'=>$debut_trait_enfants->y -$num_mariage*ESPACEMENT_MARIAGES));
-		
-		$nb_enfants=count($ids_enfants);
-		$largeur_enfants=$nb_enfants*LARGEUR_PERSONNE+($nb_enfants==1?0:(($nb_enfants-1)*ESPACEMENT_ENFANT));
-		// Point de liaison <-> Ligne des enfants
-		$trait=new Trait(array('id'=>$this->pere,'id2'=>$this->mere,'id3'=>$this->id,
-                                       'liaison'=>$liaison,
-                                       'border'=>new Border(array('left'=>1)),
-                                       'pos_debut'=>$liaison->pos,
-                                       'height'=>$pos_trait_enfant->y-$liaison->pos->y,
-                                       'name'=>'pere type1',
-                                       'type'=>'point_liaison__ligne_enfants'));
-		$trait->addOrUpdate();
-                $traits[]=$trait;
-		
 		// Ligne des enfants <-> Enfant
+                $debut_trait_enfants=new Coord(array('x'=>ComplexObjectFieldToGet('Boite','pos->x',array('id'=>$ids_enfants[0]))+LARGEUR_PERSONNE/2,
+                                                     'y'=>$liaison->pos->y+HAUTEUR_PERSONNE/2+HAUTEUR_GENERATION/2));
 		$trait=new Trait(array('id'=>$this->pere,'id2'=>$this->mere,'id3'=>$this->id,
                                        'liaison'=>$liaison,
                                        'border'=>new Border(array('left'=>1, 'top'=>0)),
-                                       'pos_debut'=>$pos_trait_enfant,
+                                       'pos_debut'=>$debut_trait_enfants,
                                        'height'=>HAUTEUR_GENERATION/2,
-                                       'name'=>'pere type2',
+                                       'name'=>'enfant type2',
                                        'type'=>'ligne_enfants__enfant'));
 		$trait->addOrUpdate();
                 $traits[]=$trait;
-		
-		// Ligne des enfants
-		/*$trait=new Trait(array('id'=>$this->pere,'id2'=>$this->mere,'id3'=>$this->id,
+
+                // Ligne des enfants
+                if ($this->boite->pos->x + LARGEUR_PERSONNE/2 != $liaison->pos->x) {
+                    $debut_trait_enfants=new Coord(array('x'=>ComplexObjectFieldToGet('Boite','pos->x',array('id'=>$ids_enfants[0]))+LARGEUR_PERSONNE/2,
+                                                         'y'=>$liaison->pos->y+HAUTEUR_PERSONNE/2+HAUTEUR_GENERATION/2));
+                    $trait=new Trait(array('id'=>$this->pere,'id2'=>$this->mere,
+                                           'liaison'=>$liaison,
+                                           'border'=>array('top'=>1),
+                                           'pos_debut'=>$debut_trait_enfants,
+                                           'width'=>$liaison->pos->x - $debut_trait_enfants->x - LARGEUR_BORDURE*4,
+                                           'name'=>'trait_enfants',
+                                           'type'=>'conjoints'));
+                    $trait->addOrUpdate();
+                    $traits[]=$trait;
+                }
+
+		$nb_enfants=count($ids_enfants);
+		// Point de liaison <-> Ligne des enfants
+		$trait=new Trait(array('id'=>$this->pere,'id2'=>$this->mere,
                                        'liaison'=>$liaison,
-                                       'border'=>array('top'=>1),
-                                       'pos_debut'=>$debut_trait_enfants,
-                                       'width'=>$largeur_enfants,
-                                       'type'=>'conjoints',
-                                       'name'=>'enfant type3'));
+                                       'border'=>new Border(array('left'=>1)),
+                                       'pos_debut'=>$liaison->pos,
+                                       'height'=>HAUTEUR_PERSONNE/2+HAUTEUR_GENERATION/2-$num_mariage*ESPACEMENT_MARIAGES,
+                                       'name'=>'liaison_trait_enfants',
+                                       'type'=>'conjoints'));
 		$trait->addOrUpdate();
-                $traits[]=$trait;*/
-		return $traits;
+                $traits[]=$trait;
+		
+		return new ObjectArray($traits);
 	}
 	
 	static function supprimer_traits_sans_issue() {
@@ -867,7 +864,7 @@ class Personne extends ComplexObject{
 								 'type'=>'conjoints',
 								 'name'=>'enfant type3'));
 			$trait->addOrUpdate();
-			Personne::$retour['traits']['creation'][]=$trait;
+			$trait->mettre_dans_retour();
 		}
 		
 	}
@@ -988,12 +985,6 @@ class Personne extends ComplexObject{
 		$requete_set_marge='UPDATE marges SET marge='.$marge.' WHERE niveau='.$niveau.' AND id_session='.Personne::$id_session;
 		Requete::query($requete_set_marge);
 	}
-	
-        static function ajouter_a_retour($element, $type_action, $nouveau_tableau) {
-            if (!is_array($nouveau_tableau))
-                $nouveau_tableau=array($nouveau_tableau);
-            Personne::$retour[$element.'s'][$type_action] = array_merge(Personne::$retour[$element.'s'][$type_action],$nouveau_tableau);
-        }
 }
 
 function debug($texte) {
