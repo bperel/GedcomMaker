@@ -1,5 +1,6 @@
 #section_progression {
     position:fixed;
+    z-index:900;
     width:300px;
     top:0;
     left:0;
