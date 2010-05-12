@@ -19,7 +19,7 @@ $args=isset($_GET['args']) ? $_GET['args'] : (isset ($_POST['args']) ? $_POST['a
 else {*/
 	$serveur='gw2';
 	$pseudo='jboidier';
-	$id='p=francois;n=veurier';
+	$id='p=jean+marcel;n=boidier';
 //}
 $url='http://'.$serveur.'.geneanet.org/index.php3?b='.$pseudo.'&lang=fr;'.$id;
 
@@ -52,23 +52,15 @@ $personne_source=new Personne($url);
 	<link rel="stylesheet" media="screen" href="style.css" />
 </head>
 <body id="body">
-<a href="javascript:void(0)" onclick="routine()">Commencer</a><br />
-<span style="color:#006600;font-weight:bold;"><?php echo $personne_source->id;?></span> <br/>
-<span class="progressBar" name="niveau0" id="<?php echo $personne_source->id;?>"></span>
+<div id="section_progression">
+    <a href="javascript:void(0)" onclick="routine()">Commencer</a><br />
+    <span style="color:#006600;font-weight:bold;"><?php echo $personne_source->id;?></span> <br/>
+    <span class="progressBar" name="niveau0" id="<?php echo $personne_source->id;?>"></span>
+</div>
 </body>
 </html>
 <?php
 exit(0);
-
-/*
-if (file_exists('serialized.txt')) {
-	$inF = fopen('serialized.txt',"r"); 
-	$buffer='';
-	while (!feof($inF)) {
-	   $buffer.= fgets($inF, 4096)."<br>";
-	}
-	$personne_source=unserialize($buffer);
-}*/
 
 $personne_source->analyser();
 $personne_source->afficher();

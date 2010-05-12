@@ -1,16 +1,7 @@
-
 var id_g;
-var id_caller_g;
-var id_tmp_g;
-var id2;
-var next2;
-var analyzed_ids=new Array();
-var nb_descendants=new Array();
 var pile=new Array();
-var traiter;
 var ajax_is_loading=false;
-var conjoints=new Array();
-var decalage_top=0,decalage_left=0;
+var marge_gauche=300;
 
 function routine() {
 	if (pile_personnes.length > 0 || ajax_is_loading) {
@@ -23,93 +14,84 @@ function routine() {
 }
 
 function loadPersonne (id, id_caller) {
-	ajax_is_loading=true;
-	id_g=id;
+    ajax_is_loading=true;
+    id_g=id;
 
-        if ($('boite_'+id))
-            $('boite_'+id).insert(new Element('img',{'src':'images/ajax-loading.gif'}));
-	new Ajax.Request('Personne.class.php', {
-		parameters:script+'=true&site_source='+site_source+'&id_session='+id_session_g+'&serveur='+serveur_g+'&pseudo='+pseudo_g+'&autres_args='+id.replace('%',';pcnt;')+'&caller='+id_caller.replace('%',';pcnt;'),
-		asynchronous: true,
-		onSuccess: function(transport) {
-			var resultat=transport.headerJSON;
-                        if (!resultat)
-                            resultat=eval('('+transport.responseText.substring(transport.responseText.indexOf('{'),transport.responseText.length)+')');
-			if (script=='analyse') {
-				if (!resultat || resultat.length==0) {
-				    alert('L\'analyse de '+id_g+' a retourné : \n\n'+transport.responseText);
-				    if (nb_barres_ajoutees==0)
-				    	definir_termine(id_g);
-			    	ajax_is_loading=false;
-			    	pile_personnes=new Array();
-				    return;
-			    }
-			    var niveau_suivant=parseInt($(id_g).readAttribute('name').substring('niveau'.length))+1;
-			    var nb_barres_ajoutees=0;
-			    if (typeof resultat.pere != 'undefined') {
-			    	var id_pere=resultat.pere['id'];
-			    	nb_barres_ajoutees+=ajouter_barre(niveau_suivant,id_pere, id_g,'Père',resultat.pere['action'],false);
-			    }
-			    if (typeof resultat.mere != 'undefined') {
-			    	var id_mere=resultat.mere['id'];
-			    	nb_barres_ajoutees+=ajouter_barre(niveau_suivant,id_mere, id_g,'Mère',resultat.mere['action'],false);
-			    }
-			    if (typeof resultat.mariages != 'undefined') {
-				    for(var i=0;i<resultat.mariages.length;i++) {
-				    	var id_conjoint=resultat.mariages[i]['conjoint']['id'];
-				    	/*if (conjoints.indexOf(id)==-1)
-				    		conjoints[id]=new Array();
-				    	if (conjoints.indexOf(id_conjoint)==-1)
-				    		conjoints[id_conjoint]=new Array();
-				    	conjoints[id].push(id_conjoint);
-				    	conjoints[id_conjoint].push(id);*/
-				    	nb_barres_ajoutees+=ajouter_barre(niveau_suivant,id_conjoint, id_g,'Epoux',resultat.mariages[i]['conjoint']['action'],false);
-				    	if (typeof resultat.mariages[i].enfants != 'undefined') {
-					    	for (var j=0;j<resultat.mariages[i]['enfants'].length;j++) {
-						    	var id_enfant=resultat.mariages[i]['enfants'][j]['id'];
-						    	nb_barres_ajoutees+=ajouter_barre(niveau_suivant,id_enfant, id_g,'Enfant',resultat.mariages[i]['enfants'][j]['action'],id_conjoint);
-						    }
-				    	}
-				    }
-			    }
-				if (resultat.traits) {
-                                    for (var i=0;i<resultat.traits.length;i++) {
-                                        if ($(trait_to_id(resultat.traits[i])))
-                                            $(trait_to_id(resultat.traits[i])).remove();
-                                        afficher_trait(resultat.traits[i]);
-                                    }
-				}
-				if (resultat.boites) {
-                                    for (var i=0;i<resultat.boites.length;i++) {
-                                        if ($('boite_'+resultat.boites[i].id))
-                                            $('boite_'+resultat.boites[i].id).remove();
-                                        afficher_boite(resultat.boites[i]);
-                                    }
-				}
-				//if (decalage_top != resultat.decalage.top || decalage_left != resultat.decalage.left) {
-					$$('.personne, .trait').each (function(el) { 
-                                            el.style.marginTop = resultat.decalage.top + "px";
-                                            el.style.marginLeft = resultat.decalage.left + "px";
-                                        });
-					decalage_left=resultat.decalage.left;
-					decalage_top=resultat.decalage.top;
-				//}
-			    if (nb_barres_ajoutees==0)
-			    	definir_termine(id_g);
-			}
-			else if (script=='make_tree') {
-				if (!resultat || resultat.length==0) {
-				    alert('L\'analyse de '+id_g+' a retourné : \n\n'+transport.responseText);
-			    	ajax_is_loading=false;
-			    	pile_personnes=new Array();
-				    return;
-				}
-				afficher_boite(resultat.boites.creation[0]);
-			}
-		    ajax_is_loading=false;
-		    
-		}
-	});
+    if ($('boite_'+id))
+        $('boite_'+id).insert(new Element('img',{'src':'images/ajax-loading.gif'}));
+    new Ajax.Request('Personne.class.php', {
+            parameters:script+'=true&site_source='+site_source+'&id_session='+id_session_g+'&serveur='+serveur_g+'&pseudo='+pseudo_g+'&autres_args='+id.replace('%',';pcnt;')+'&caller='+id_caller.replace('%',';pcnt;'),
+            asynchronous: true,
+            onSuccess: function(transport) {
+                var resultat=transport.headerJSON;
+                if (!resultat)
+                    resultat=eval('('+transport.responseText.substring(transport.responseText.indexOf('{'),transport.responseText.length)+')');
+                if (script=='analyse') {
+                    if (!resultat || resultat.length==0) {
+                        alert('L\'analyse de '+id_g+' a retourné : \n\n'+transport.responseText);
+                        if (nb_barres_ajoutees==0)
+                            definir_termine(id_g);
+                        ajax_is_loading=false;
+                        pile_personnes=new Array();
+                        return;
+                    }
+                    var niveau_suivant=parseInt($(id_g).readAttribute('name').substring('niveau'.length))+1;
+                    var nb_barres_ajoutees=0;
+                    if (typeof resultat.pere != 'undefined') {
+                        var id_pere=resultat.pere['id'];
+                        nb_barres_ajoutees+=ajouter_barre(niveau_suivant,id_pere, id_g,'Père',resultat.pere['action'],false);
+                    }
+                    if (typeof resultat.mere != 'undefined') {
+                        var id_mere=resultat.mere['id'];
+                        nb_barres_ajoutees+=ajouter_barre(niveau_suivant,id_mere, id_g,'Mère',resultat.mere['action'],false);
+                    }
+                    if (typeof resultat.mariages != 'undefined') {
+                        for(var i=0;i<resultat.mariages.length;i++) {
+                            var id_conjoint=resultat.mariages[i]['conjoint']['id'];
+                            nb_barres_ajoutees+=ajouter_barre(niveau_suivant,id_conjoint, id_g,'Epoux',resultat.mariages[i]['conjoint']['action'],false);
+                            if (typeof resultat.mariages[i].enfants != 'undefined') {
+                                for (var j in resultat.mariages[i]['enfants']) {
+                                    if (isNaN(j))
+                                        continue;
+                                    var id_enfant=resultat.mariages[i]['enfants'][j]['id'];
+                                    nb_barres_ajoutees+=ajouter_barre(niveau_suivant,id_enfant, id_g,'Enfant',resultat.mariages[i]['enfants'][j]['action'],id_conjoint);
+                                }
+                            }
+                        }
+                    }
+                    if (resultat.traits) {
+                        for (var i=0;i<resultat.traits.length;i++) {
+                            if ($(trait_to_id(resultat.traits[i])))
+                                $(trait_to_id(resultat.traits[i])).remove();
+                            afficher_trait(resultat.traits[i]);
+                        }
+                    }
+                    if (resultat.boites) {
+                        for (var i=0;i<resultat.boites.length;i++) {
+                            if ($('boite_'+resultat.boites[i].id))
+                                $('boite_'+resultat.boites[i].id).remove();
+                            afficher_boite(resultat.boites[i]);
+                        }
+                    }
+                    $$('.personne, .trait').each (function(el) {
+                        el.style.marginTop = resultat.decalage.top + "px";
+                        el.style.marginLeft = marge_gauche+resultat.decalage.left + "px";
+                    });
+                    if (nb_barres_ajoutees==0)
+                        definir_termine(id_g);
+                }
+                else if (script=='make_tree') {
+                    if (!resultat || resultat.length==0) {
+                        alert('L\'analyse de '+id_g+' a retourné : \n\n'+transport.responseText);
+                        ajax_is_loading=false;
+                        pile_personnes=new Array();
+                        return;
+                    }
+                    afficher_boite(resultat.boites.creation[0]);
+                }
+                ajax_is_loading=false;
+            }
+    });
 }
 
 function trait_to_id(trait) {
@@ -149,7 +131,7 @@ function afficher_boite(boite) {
 }
 
 function definir_termine(id) {
-	$(id+'_percentImage').replace('OK');
+	$(id).replace('OK');
 
 	var id_caller=id_to_caller(id);
 	if (!$(id_caller) || $(id_caller)=='')

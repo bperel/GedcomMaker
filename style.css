@@ -1,3 +1,13 @@
+#section_progression {
+    position:fixed;
+    width:300px;
+    top:0;
+    left:0;
+    border-right:1px solid blue;
+    overflow:auto;
+    white-space: nowrap;
+}
+
 .trait {
 	z-index:10;
 	position:absolute;
