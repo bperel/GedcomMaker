@@ -17,8 +17,11 @@ function loadPersonne (id, id_caller) {
     ajax_is_loading=true;
     id_g=id;
 
-    if ($('boite_'+id))
+    if ($('boite_'+id)) {
         $('boite_'+id).insert(new Element('img',{'src':'images/ajax-loading.gif'}));
+    }
+    $('texte_'+id).setStyle({'fontStyle':'italic'});
+
     new Ajax.Request('Personne.class.php', {
             parameters:script+'=true&site_source='+site_source+'&id_session='+id_session_g+'&serveur='+serveur_g+'&pseudo='+pseudo_g+'&autres_args='+id.replace('%',';pcnt;')+'&caller='+id_caller.replace('%',';pcnt;'),
             asynchronous: true,
@@ -35,6 +38,7 @@ function loadPersonne (id, id_caller) {
                         pile_personnes=new Array();
                         return;
                     }
+                    $('texte_'+id_g).setStyle({'fontStyle':'normal'});
                     var niveau_suivant=parseInt($(id_g).readAttribute('name').substring('niveau'.length))+1;
                     var nb_barres_ajoutees=0;
                     if (typeof resultat.pere != 'undefined') {
@@ -178,7 +182,7 @@ function ajouter_barre(niveau, id, id_caller,type, etat, id_conjoint) {
 		case 'Mère':couleur='#FF0000';num_image=3;break;
 		case 'Epoux':couleur='#9A2EFE';num_image=4;break;
 	}
-	var progressBar=new Element('span').setStyle({'color':couleur,'fontWeight':'bold'}).update(texte);
+	var progressBar=new Element('span',{'id':'texte_'+id}).setStyle({'color':couleur,'fontWeight':'bold'}).update(texte);
 	var espacement='';
 	for (var a=0;a<niveau;a++)
 		espacement+='&nbsp;&nbsp;';
