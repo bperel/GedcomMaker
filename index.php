@@ -54,7 +54,7 @@ $personne_source=new Personne($url);
 <body id="body">
 <div id="section_progression">
     <a href="javascript:void(0)" onclick="routine()">Commencer</a><br />
-    <span style="color:#006600;font-weight:bold;" id="texte_p=jean+marcel;n=boidier"><?php echo $personne_source->id;?></span> <br/>
+    <span style="color:#006600;font-weight:bold;" id="texte_p=jean+marcel;n=boidier" name="jean+marcel;n=boidier"><?php echo $personne_source->id;?></span> <br/>
     <span class="progressBar" name="niveau0" id="<?php echo $personne_source->id;?>"></span>
 </div>
 </body>

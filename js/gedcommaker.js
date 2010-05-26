@@ -129,8 +129,7 @@ function afficher_boite(boite) {
 	var elboite=new Element('div',{'id':'boite_'+boite.id}).addClassName('personne '+boite.sexe)
                                                                .setStyle({'left':boite.pos.x+'px','top':boite.pos.y+'px',
                                                                           'width':boite.dimension.width+'px','height':boite.dimension.height+'px'})
-                                                               .update(boite.contenu)
-                                                               .insert(new Element('div').addClassName('recursion').update(boite.recursion));
+                                                               .update(boite.contenu);
 	$('body').insert(elboite);
 }
 
@@ -165,11 +164,14 @@ function ajouter_barre(niveau, id, id_caller,type, etat, id_conjoint) {
 		etat='already_done';
 	
 	if (etat!='todo') {
+		if (etat=='already_done')
+                    texte+=' [<a href="#texte_'+id+'>cf ici</a>]';
+                else
+                    texte+=' ['+etat+']';
 		var numero=1;
 		while ($(id+numero))
 			numero++;
 		id+='/'+numero;
-		texte+=' ['+etat+']';
 	}
 	if (type=='Enfant')
 		niveau++;
@@ -182,7 +184,7 @@ function ajouter_barre(niveau, id, id_caller,type, etat, id_conjoint) {
 		case 'Mère':couleur='#FF0000';num_image=3;break;
 		case 'Epoux':couleur='#9A2EFE';num_image=4;break;
 	}
-	var progressBar=new Element('span',{'id':'texte_'+id}).setStyle({'color':couleur,'fontWeight':'bold'}).update(texte);
+	var progressBar=new Element('span',{'id':'texte_'+id,'name':id}).setStyle({'color':couleur,'fontWeight':'bold'}).update(texte);
 	var espacement='';
 	for (var a=0;a<niveau;a++)
 		espacement+='&nbsp;&nbsp;';
