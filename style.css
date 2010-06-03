@@ -8,6 +8,7 @@
     border-right:1px solid blue;
     overflow:auto;
     white-space: nowrap;
+    background-color: #ffffff;
 }
 
 .trait {
